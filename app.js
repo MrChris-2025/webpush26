@@ -73,7 +73,6 @@ function buildScoreboardGrid() {
         const game = espnScoresCache[key];
         const [home, away] = key.split('_vs_');
 
-        // FIXED: Only skip if filtering explicitly for live games and the game isn't live
         if (currentFilter === 'live' && !game.isLive) continue;
         if (searchVal && !home.includes(searchVal) && !away.includes(searchVal)) continue;
 
@@ -116,6 +115,23 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('topBtnLive').addEventListener('click', () => { currentFilter = 'live'; buildScoreboardGrid(); });
     document.getElementById('topBtnAll').addEventListener('click', () => { currentFilter = 'all'; buildScoreboardGrid(); });
     document.getElementById('searchInput').addEventListener('input', buildScoreboardGrid);
+
+    // SIMPLE MOCK TEST BUTTON INTERACTION
+    const testBtn = document.getElementById('testBtnMock');
+    if (testBtn) {
+        testBtn.addEventListener('click', () => {
+            espnScoresCache['gotham_vs_metropolis'] = {
+                homeScore: 24,
+                awayScore: 21,
+                clock: "4th Quarter - 2:00",
+                isLive: true,
+                isFinal: false,
+                baseballDetails: null,
+                leagueSymbol: "nfl"
+            };
+            buildScoreboardGrid();
+        });
+    }
 
     // Run Engine
     fetchEspnScores(true, { onGridRefresh: buildScoreboardGrid });
