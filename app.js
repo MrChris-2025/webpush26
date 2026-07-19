@@ -12,38 +12,46 @@ masterAlert.checked = localStorage.getItem('alerts_enabled') === 'true';
 
 // Initialize League Switches
 ['nfl', 'mlb', 'nba'].forEach(league => {
-    document.getElementById(`btn-${league}`).addEventListener('click', (e) => {
-        document.querySelectorAll('.league-btn').forEach(b => b.className = 'league-btn py-2 text-xs font-bold rounded-xl bg-white/5 text-gray-400');
-        e.target.className = 'league-btn py-2 text-xs font-bold rounded-xl bg-red-600 text-white';
-        activeLeague = league;
-        fetchScores();
-    });
+    const btn = document.getElementById(`btn-${league}`);
+    if (btn) {
+        btn.addEventListener('click', (e) => {
+            document.querySelectorAll('.league-btn').forEach(b => b.className = 'league-btn py-2 text-xs font-bold rounded-xl bg-white/5 text-gray-400');
+            e.target.className = 'league-btn py-2 text-xs font-bold rounded-xl bg-red-600 text-white';
+            activeLeague = league;
+            fetchScores();
+        });
+    }
 });
 
 // Update Alerts Config
-masterAlert.addEventListener('change', async (e) => {
-    localStorage.setItem('alerts_enabled', e.target.checked);
-    if (e.target.checked && Notification.permission !== 'granted') {
-        await Notification.requestPermission();
-    }
-});
+if (masterAlert) {
+    masterAlert.addEventListener('change', async (e) => {
+        localStorage.setItem('alerts_enabled', e.target.checked);
+        if (e.target.checked && Notification.permission !== 'granted') {
+            await Notification.requestPermission();
+        }
+    });
+}
 
 // Manage Targeted Teams Preference Lookups
-teamInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' && teamInput.value.trim() !== '') {
-        const value = teamInput.value.trim().toLowerCase();
-        if (!trackedTeams.includes(value)) {
-            trackedTeams.push(value);
-            localStorage.setItem('tracked_teams', JSON.stringify(trackedTeams));
-            renderTrackedTeams();
-            fetchScores();
+if (teamInput) {
+    teamInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && teamInput.value.trim() !== '') {
+            const value = teamInput.value.trim().toLowerCase();
+            if (!trackedTeams.includes(value)) {
+                trackedTeams.push(value);
+                localStorage.setItem('tracked_teams', JSON.stringify(trackedTeams));
+                renderTrackedTeams();
+                fetchScores();
+            }
+            teamInput.value = '';
         }
-        teamInput.value = '';
-    }
-});
+    });
+}
 
 function renderTrackedTeams() {
     const list = document.getElementById('trackedTeamsList');
+    if (!list) return;
     list.innerHTML = trackedTeams.map(team => `
         <span class="inline-flex items-center gap-1.5 bg-red-600/20 text-red-400 px-2.5 py-1 rounded-lg text-xs font-bold capitalize">
             ${team}
@@ -72,6 +80,7 @@ async function fetchScores() {
 }
 
 function processEvents(events) {
+    if (!grid) return;
     let cardsHtml = '';
     
     events.forEach(event => {
@@ -87,14 +96,14 @@ function processEvents(events) {
         const isTracked = trackedTeams.length === 0 || trackedTeams.includes(homeName) || trackedTeams.includes(awayName);
         if (!isTracked) return;
 
-        const currentHomeScore = parseInt(homeTeam.score);
-        const currentAwayScore = parseInt(awayTeam.score);
+        const currentHomeScore = parseInt(homeTeam.score) || 0;
+        const currentAwayScore = parseInt(awayTeam.score) || 0;
         const matchId = event.id;
 
         // Check cache to monitor live status modifications
         if (scoreCache[matchId]) {
             const oldData = scoreCache[matchId];
-            if (masterAlert.checked && (oldData.homeScore !== currentHomeScore || oldData.awayScore !== currentAwayScore)) {
+            if (masterAlert && masterAlert.checked && (oldData.homeScore !== currentHomeScore || oldData.awayScore !== currentAwayScore)) {
                 triggerSystemNotification(
                     `Score Shift: ${awayTeam.team.shortDisplayName} @ ${homeTeam.team.shortDisplayName}`,
                     `${awayTeam.team.shortDisplayName} ${currentAwayScore} - ${currentHomeScore} ${homeTeam.team.shortDisplayName} [${status}]`
@@ -123,23 +132,48 @@ function processEvents(events) {
     grid.innerHTML = cardsHtml || `<div class="col-span-full py-8 text-center text-xs text-gray-500">No active matches found.</div>`;
 }
 
-function triggerSystemNotification(title, message) {
-    if (Notification.permission === 'granted') {
-        new Notification(title, { body: message });
+async function triggerSystemNotification(title, body) {
+    try {
+        if ('serviceWorker' in navigator) {
+            const registration = await navigator.serviceWorker.ready;
+            if (registration.active) {
+                registration.active.postMessage({
+                    type: 'SHOW_NOTIFICATION',
+                    title: title,
+                    body: body
+                });
+                return;
+            }
+        }
+        new Notification(title, { body });
+    } catch (err) {
+        new Notification(title, { body });
     }
 }
 
 // Simulation Testing Button Trigger
-document.getElementById('mockTriggerBtn').addEventListener('click', () => {
-    if (Notification.permission !== 'granted') {
-        alert("Turn on System Alerts first!");
-        return;
-    }
-    triggerSystemNotification(
-        "⚡ test Game Alert",
-        "Score Shift Simulation: Away 24 - 21 Home [Live]"
-    );
-});
+const mockBtn = document.getElementById('mockTriggerBtn');
+if (mockBtn) {
+    mockBtn.addEventListener('click', () => {
+        if (Notification.permission !== 'granted') {
+            alert("Turn on System Alerts first!");
+            return;
+        }
+        triggerSystemNotification(
+            "⚡ Test Game Alert",
+            "Score Shift Simulation: Away 24 - 21 Home [Live]"
+        );
+    });
+}
+
+// Service Worker Registration Handler
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js')
+            .then(reg => console.log('Service Worker Live:', reg.scope))
+            .catch(err => console.error('Worker registration failed:', err));
+    });
+}
 
 // Kickstart Loop Processing
 renderTrackedTeams();
