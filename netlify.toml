@@ -1,0 +1,7 @@
+[[edge-functions]]
+  path = "/api/save-subscription"
+  function = "save-subscription"
+
+[[edge-functions]]
+  path = "/api/check-scores"
+  function = "check-scores"
