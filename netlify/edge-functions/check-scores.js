@@ -2,12 +2,7 @@ import { getStore } from "https://deno.land/x/netlify_blobs@v2.0.0/mod.ts";
 
 const VAPID_PUBLIC_KEY = 'BGUzkLiSemAIlhdNCJWDxARVhPDZRfPhZIsyvtoxOQde-1SCPGOGTpP6b9qtyhNS5oIYq2RpDwu538vXCIdZr6o';
 
-// Base64 helper tools for crypto encoding pipelines
-function decodeBase64(str) {
-    return new Uint8Array([...atob(str.replace(/-/g, "+").replace(/_/g, "/"))].map(c => c.charCodeAt(0)));
-}
-
-export default async () => {
+export default async (request) => {
     try {
         const tokenStore = getStore("push_tokens");
         const cacheStore = getStore("game_caches");
@@ -37,19 +32,16 @@ export default async () => {
                     const old = scoreCache[matchId];
                     if (old.homeScore !== homeScore || old.awayScore !== awayScore) {
                         
-                        // Construct the alert blueprint data
                         const payload = JSON.stringify({
                             title: `Score Shift: ${away.team.shortDisplayName} @ ${home.team.shortDisplayName}`,
                             body: `${away.team.shortDisplayName} ${awayScore} - ${homeScore} ${home.team.shortDisplayName} [${status}]`,
                             url: `https://www.espn.com/${league}/game/_/gameId/${matchId}`
                         });
 
-                        // Cycle through saved token lists and blast updates straight to Apple's gateways
                         for (const key of tokenList.blobs) {
                             const subscription = await tokenStore.getJSON(key.key);
                             if (!subscription) continue;
 
-                            // Send data directly to Apple's Push endpoints (APNs / FCM handles it from here)
                             await fetch(subscription.endpoint, {
                                 method: 'POST',
                                 headers: {
