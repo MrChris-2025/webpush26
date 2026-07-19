@@ -28,10 +28,6 @@
             <div class="w-8 h-8 bg-black rounded flex items-center justify-center shadow-lg shadow-red-600/20"><i class="fa-solid fa-play text-white text-sm"></i></div>
             <span class="text-xl font-light tracking-tight">hc | <b class="font-black">SCOREBOARD</b></span>
         </div>
-
-        <div class="flex items-center gap-4">
-            <button id="mockTriggerBtn" class="px-4 py-1.5 rounded-full text-xs font-bold bg-amber-500 text-black">⚡ Simulate Score Update</button>
-        </div>
     </nav>
 
     <main class="flex-1 p-6 max-w-7xl mx-auto w-full grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -40,13 +36,13 @@
             <div class="glass border rounded-2xl p-4 flex items-center justify-between">
                 <div>
                     <h2 class="text-xs font-bold text-gray-300">System Alerts</h2>
-                    <p class="text-[11px] text-gray-500">Enable local desktop notifications</p>
+                    <p class="text-[11px] text-gray-500">Enable local game-change banners</p>
                 </div>
                 <input type="checkbox" id="masterAlertToggle" class="w-4 h-4 accent-red-600">
             </div>
 
             <div class="glass-card p-4 rounded-2xl">
-                <h3 class="text-xs font-bold uppercase tracking-wider text-gray-400 mb-3">1. Select League</h3>
+                <h3 class="text-xs font-bold uppercase tracking-wider text-gray-400 mb-3">Select League</h3>
                 <div class="grid grid-cols-3 gap-2">
                     <button id="btn-nfl" class="league-btn py-2 text-xs font-bold rounded-xl bg-red-600 text-white">NFL</button>
                     <button id="btn-mlb" class="league-btn py-2 text-xs font-bold rounded-xl bg-white/5 text-gray-400 hover:bg-white/10">MLB</button>
@@ -55,7 +51,7 @@
             </div>
 
             <div class="glass-card p-4 rounded-2xl">
-                <h3 class="text-xs font-bold uppercase tracking-wider text-gray-400 mb-3">2. Tracked Teams</h3>
+                <h3 class="text-xs font-bold uppercase tracking-wider text-gray-400 mb-3">Tracked Teams</h3>
                 <input type="text" id="teamSearchInput" placeholder="Press Enter to add (e.g., Cowboys)" class="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-red-600 mb-3">
                 <div id="trackedTeamsList" class="flex flex-wrap gap-2 max-h-40 overflow-y-auto"></div>
                 <p class="text-[10px] text-gray-500 mt-2">Leave blank to watch all games</p>
