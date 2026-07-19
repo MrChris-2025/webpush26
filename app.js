@@ -1,201 +1,136 @@
-import { espnScoresCache, leagueConfigs, fetchEspnScores } from './espn-service.js';
+let activeLeague = 'nfl';
+let trackedTeams = JSON.parse(localStorage.getItem('tracked_teams')) || [];
+let scoreCache = {};
 
-const VAPID_PUBLIC_KEY = 'BGUzkLiSemAIlhdNCJWDxARVhPDZRfPhZIsyvtoxOQde-1SCPGOGTpP6b9qtyhNS5oIYq2RpDwu538vXCIdZr6o';
-let currentFilter = 'live';
+// UI References
+const grid = document.getElementById('scoreboardGrid');
+const teamInput = document.getElementById('teamSearchInput');
+const masterAlert = document.getElementById('masterAlertToggle');
 
-// Push Notification Registration Helper
-function urlBase64ToUint8Array(base64String) {
-    const padding = '='.repeat((4 - base64String.length % 4) % 4);
-    const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
-    return new Uint8Array([...window.atob(base64)].map(c => c.charCodeAt(0)));
-}
+// Load configurations
+masterAlert.checked = localStorage.getItem('alerts_enabled') === 'true';
 
-async function subscribeToPushAlerts() {
-    if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
-    try {
-        const registration = await navigator.serviceWorker.ready;
-        let subscription = await registration.pushManager.getSubscription();
-        if (!subscription) {
-            subscription = await registration.pushManager.subscribe({
-                userVisibleOnly: true,
-                applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
-            });
+// Initialize League Switches
+['nfl', 'mlb', 'nba'].forEach(league => {
+    document.getElementById(`btn-${league}`).addEventListener('click', (e) => {
+        document.querySelectorAll('.league-btn').forEach(b => b.className = 'league-btn py-2 text-xs font-bold rounded-xl bg-white/5 text-gray-400');
+        e.target.className = 'league-btn py-2 text-xs font-bold rounded-xl bg-red-600 text-white';
+        activeLeague = league;
+        fetchScores();
+    });
+});
+
+// Update Alerts Config
+masterAlert.addEventListener('change', (e) => {
+    localStorage.setItem('alerts_enabled', e.target.checked);
+    if (e.target.checked && Notification.permission !== 'granted') {
+        Notification.requestPermission();
+    }
+});
+
+// Manage Targeted Teams Preference Lookups
+teamInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && teamInput.value.trim() !== '') {
+        const value = teamInput.value.trim().toLowerCase();
+        if (!trackedTeams.includes(value)) {
+            trackedTeams.push(value);
+            localStorage.setItem('tracked_teams', JSON.stringify(trackedTeams));
+            renderTrackedTeams();
+            fetchScores();
         }
-        await fetch('/.netlify/functions/save-subscription', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(subscription)
-        });
-    } catch (e) { console.error("Subscription pipeline blocked:", e); }
+        teamInput.value = '';
+    }
+});
+
+function renderTrackedTeams() {
+    const list = document.getElementById('trackedTeamsList');
+    list.innerHTML = trackedTeams.map(team => `
+        <span class="inline-flex items-center gap-1.5 bg-red-600/20 text-red-400 px-2.5 py-1 rounded-lg text-xs font-bold capitalize">
+            ${team}
+            <i class="fa-solid fa-xmark cursor-pointer hover:text-red-200" onclick="removeTeam('${team}')"></i>
+        </span>
+    `).join('');
 }
 
-function broadcastNativePush(title, body, icon, tag) {
-    fetch('/.netlify/functions/send-push', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            payload: { title, body, icon, tag, url: window.location.origin },
-            subscriptions: [] // Fed server-side via persistent DB lookups
-        })
-    }).catch(() => {});
+window.removeTeam = (teamName) => {
+    trackedTeams = trackedTeams.filter(t => t !== teamName);
+    localStorage.setItem('tracked_teams', JSON.stringify(trackedTeams));
+    renderTrackedTeams();
+    fetchScores();
+};
+
+// Pull Engine Data from ESPN Scoreboard API
+async function fetchScores() {
+    try {
+        const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/${activeLeague === 'mlb' ? 'baseball' : activeLeague === 'nba' ? 'basketball' : 'football'}/${activeLeague}/scoreboard`);
+        const data = await res.json();
+        processEvents(data.events || []);
+    } catch (err) {
+        console.error("Error connecting data pipes:", err);
+    }
 }
 
-// Local DOM Toast Handler
-function triggerLocalToast(league, title, subtitle, msg, logo) {
-    const container = document.getElementById('sports-toast-container');
-    if (!container) return;
-    const id = 'toast_' + Math.random().toString(36).substr(2, 9);
-    const config = leagueConfigs[league] || {};
+function processEvents(events) {
+    let cardsHtml = '';
     
-    container.insertAdjacentHTML('beforeend', `
-        <div id="${id}" class="toast-avatar glass">
-            <div class="toast-icon-wrapper">
-                ${logo ? `<img src="${logo}" class="w-6 h-6 object-contain" />` : `<i class="${config.fa || 'fa-solid fa-bell'}"></i>`}
-            </div>
-            <div class="flex-1 min-w-0">
-                <p class="text-xs font-black text-red-500 uppercase tracking-wider mb-0.5">${config.label || 'Update'}</p>
-                <p class="text-xs font-bold text-white truncate">${title}</p>
-                <p class="text-[11px] text-gray-400 truncate mt-0.5">${msg} [${subtitle}]</p>
-            </div>
-            <div class="toast-dismiss-btn" onclick="document.getElementById('${id}').remove()">&times;</div>
-            <div class="toast-progress-bar"></div>
-        </div>
-    `);
-    setTimeout(() => document.getElementById(id)?.remove(), 10000);
-}
+    events.forEach(event => {
+        const competition = event.competitions[0];
+        const homeTeam = competition.competitors.find(c => c.homeAway === 'home');
+        const awayTeam = competition.competitors.find(c => c.homeAway === 'away');
+        const status = event.status.type.detail;
+        
+        const homeName = homeTeam.team.shortDisplayName.toLowerCase();
+        const awayName = awayTeam.team.shortDisplayName.toLowerCase();
+        
+        // Filter out if the user is explicitly filtering down targeted teams list
+        const isTracked = trackedTeams.length === 0 || trackedTeams.includes(homeName) || trackedTeams.includes(awayName);
+        if (!isTracked) return;
 
-// UI State Updates
-function buildScoreboardGrid() {
-    const grid = document.getElementById('matchesGrid');
-    const searchVal = document.getElementById('searchInput').value.toLowerCase();
-    let html = "";
+        const currentHomeScore = parseInt(homeTeam.score);
+        const currentAwayScore = parseInt(awayTeam.score);
+        const matchId = event.id;
 
-    for (let key in espnScoresCache) {
-        const game = espnScoresCache[key];
-        const [home, away] = key.split('_vs_');
+        // Check if game data has shifted for notifications
+        if (scoreCache[matchId]) {
+            const oldData = scoreCache[matchId];
+            if (masterAlert.checked && (oldData.homeScore !== currentHomeScore || oldData.awayScore !== currentAwayScore)) {
+                triggerSystemNotification(
+                    `${awayTeam.team.shortDisplayName} @ ${homeTeam.team.shortDisplayName}`,
+                    `Score Update: ${awayTeam.team.shortDisplayName} ${currentAwayScore} - ${currentHomeScore} ${homeTeam.team.shortDisplayName} [${status}]`
+                );
+            }
+        }
 
-        if (currentFilter === 'live' && !game.isLive) continue;
-        if (searchVal && !home.includes(searchVal) && !away.includes(searchVal)) continue;
+        // Keep local cache fresh
+        scoreCache[matchId] = { homeScore: currentHomeScore, awayScore: currentAwayScore };
 
-        html += `
-            <div class="match-card rounded-2xl p-5 flex flex-col justify-between relative overflow-hidden">
-                <div class="flex items-center justify-between mb-4">
-                    <span class="text-[10px] tracking-widest font-black uppercase text-gray-500">${game.clock || 'Scheduled'}</span>
-                    ${game.isLive ? '<span class="flex h-2 w-2 relative"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span><span class="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span></span>' : ''}
-                </div>
-                <div class="space-y-3">
-                    <div class="flex items-center justify-between">
-                        <span class="font-bold text-sm capitalize">${away}</span>
-                        <span class="text-sm font-black">${game.awayScore}</span>
+        // Generate Interface Data Cards
+        cardsHtml += `
+            <div class="glass-card p-4 rounded-xl flex flex-col justify-between relative overflow-hidden">
+                <div class="text-[10px] uppercase font-bold text-gray-500 tracking-wider mb-2">${status}</div>
+                <div class="space-y-2">
+                    <div class="flex justify-between items-center">
+                        <span class="text-sm font-semibold text-white capitalize">${awayTeam.team.displayName}</span>
+                        <span class="text-sm font-black text-white">${currentAwayScore}</span>
                     </div>
-                    <div class="flex items-center justify-between">
-                        <span class="font-bold text-sm capitalize">${home}</span>
-                        <span class="text-sm font-black">${game.homeScore}</span>
+                    <div class="flex justify-between items-center">
+                        <span class="text-sm font-semibold text-white capitalize">${homeTeam.team.displayName}</span>
+                        <span class="text-sm font-black text-white">${currentHomeScore}</span>
                     </div>
                 </div>
             </div>`;
-    }
-    grid.innerHTML = html || `<div class="col-span-full py-12 text-center text-gray-500 text-sm">No Events Active in View.</div>`;
-}
-
-// Application Lifecycle Event Listeners
-document.addEventListener('DOMContentLoaded', () => {
-    // Connect View Toggles
-    const toggle = document.getElementById('globalPushToggle');
-    toggle.checked = localStorage.getItem('global_push_notifications') === 'true';
-    
-    toggle.addEventListener('change', async (e) => {
-        localStorage.setItem('global_push_notifications', e.target.checked);
-        if (e.target.checked) {
-            const perm = await Notification.requestPermission();
-            if (perm === 'granted') await subscribeToPushAlerts();
-            else e.target.checked = false;
-        }
     });
 
-    document.getElementById('topBtnLive').addEventListener('click', () => { currentFilter = 'live'; buildScoreboardGrid(); });
-    document.getElementById('topBtnAll').addEventListener('click', () => { currentFilter = 'all'; buildScoreboardGrid(); });
-    document.getElementById('searchInput').addEventListener('input', buildScoreboardGrid);
+    grid.innerHTML = cardsHtml || `<div class="col-span-full py-8 text-center text-xs text-gray-500">No matching events found for current configuration.</div>`;
+}
 
-    // DIAGNOSTIC TESTING PIPELINE
-    const testBtn = document.getElementById('testBtnMock');
-    if (testBtn) {
-        testBtn.addEventListener('click', async () => {
-            try {
-                const matchKey = 'gotham_vs_metropolis';
-                
-                // 1. Update Layout View
-                espnScoresCache[matchKey] = {
-                    homeScore: 24,
-                    awayScore: 21,
-                    clock: "4th Quarter - 2:00",
-                    isLive: true,
-                    isFinal: false,
-                    baseballDetails: null,
-                    leagueSymbol: "nfl"
-                };
-                buildScoreboardGrid();
-
-                // 2. Network Check Pipeline
-                if ('serviceWorker' in navigator && localStorage.getItem('global_push_notifications') === 'true') {
-                    const registration = await navigator.serviceWorker.ready;
-                    const subscription = await registration.pushManager.getSubscription();
-                    
-                    if (subscription) {
-                        const response = await fetch('/.netlify/functions/send-push', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                payload: {
-                                    title: 'Metropolis @ Gotham',
-                                    body: '[4th Quarter - 2:00] TOUCHDOWN GOTHAM (21-24)',
-                                    url: window.location.origin
-                                },
-                                subscriptions: [subscription] 
-                            })
-                        });
-
-                        let resData = {};
-                        try {
-                            resData = await response.json();
-                        } catch(parseErr) {
-                            resData = { error: "Could not parse server response text." };
-                        }
-                        
-                        if (response.ok) {
-                            alert("Server received it perfectly! Tap Close and QUICKLY swipe home now.");
-                        } else {
-                            alert("Server Error (" + response.status + "): " + (resData.error || JSON.stringify(resData)));
-                        }
-                    } else {
-                        alert("No device token found. Toggle 'System Push Alerts' OFF and ON again.");
-                    }
-                } else {
-                    alert("Ensure 'System Push Alerts' is toggled ON before tapping test.");
-                }
-            } catch (error) {
-                alert("Network / Script Crash: " + error.message);
-            }
-        });
+function triggerSystemNotification(title, message) {
+    if (Notification.permission === 'granted') {
+        new Notification(title, { body: message });
     }
+}
 
-    // Run Engine
-    fetchEspnScores(true, { onGridRefresh: buildScoreboardGrid });
-    setInterval(() => {
-        fetchEspnScores(false, {
-            onGridRefresh: buildScoreboardGrid,
-            onScoreUpdate: (league, clock, home, hScore, away, aScore, summary, logo, matchKey) => {
-                triggerLocalToast(league, `${away} @ ${home}`, clock, `${summary} (${aScore}-${hScore})`, logo);
-                if (localStorage.getItem('global_push_notifications') === 'true') {
-                    broadcastNativePush(`${away} @ ${home}`, `[${clock}] ${summary} (${aScore}-${hScore})`, logo, matchKey);
-                }
-            },
-            onMatchFinished: (league, home, away, hScore, aScore, matchKey) => {
-                triggerLocalToast(league, `${away} @ ${home}`, 'FINAL', `Game Ended: ${aScore}-${hScore}`, null);
-                if (localStorage.getItem('global_push_notifications') === 'true') {
-                    broadcastNativePush(`${away} vs ${home}`, `Final Score: ${aScore} - ${hScore}`, null, matchKey);
-                }
-            }
-        });
-    }, 15000);
-});
+// Kickstart Background Tracking Automation Loop
+renderTrackedTeams();
+fetchScores();
+setInterval(fetchScores, 15000); // Polling update intervals set to 15 seconds
