@@ -1,6 +1,5 @@
-let activeLeague = 'nfl';
+let activeLeague = 'mlb'; 
 let trackedTeams = JSON.parse(localStorage.getItem('tracked_teams')) || [];
-const VAPID_PUBLIC_KEY = 'BGUzkLiSemAIlhdNCJWDxARVhPDZRfPhZIsyvtoxOQde-1SCPGOGTpP6b9qtyhNS5oIYq2RpDwu538vXCIdZr6o';
 
 const grid = document.getElementById('scoreboardGrid');
 const teamInput = document.getElementById('teamSearchInput');
@@ -10,61 +9,20 @@ if (masterAlert) {
     masterAlert.checked = localStorage.getItem('alerts_enabled') === 'true';
 }
 
-function urlBase64ToUint8Array(base64String) {
-    const padding = '='.repeat((4 - base64String.length % 4) % 4);
-    const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
-    return new Uint8Array([...window.atob(base64)].map(c => c.charCodeAt(0)));
-}
-
-async function subscribeToPushAlerts() {
-    if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
-    try {
-        const registration = await navigator.serviceWorker.ready;
-        let subscription = await registration.pushManager.getSubscription();
-        
-        if (!subscription) {
-            subscription = await registration.pushManager.subscribe({
-                userVisibleOnly: true,
-                applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
-            });
-        }
-        
-        await fetch('/api/save-subscription', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(subscription)
-        });
-    } catch (e) {
-        console.error("Subscription pipeline blocked:", e);
-    }
-}
-
-['nfl', 'mlb', 'nba'].forEach(league => {
-    const btn = document.getElementById(`btn-${league}`);
-    if (btn) {
-        btn.addEventListener('click', (e) => {
-            document.querySelectorAll('.league-btn').forEach(b => b.className = 'league-btn py-2 text-xs font-bold rounded-xl bg-white/5 text-gray-400');
-            e.target.className = 'league-btn py-2 text-xs font-bold rounded-xl bg-red-600 text-white';
-            activeLeague = league;
-            fetchScores();
-        });
-    }
-});
-
+// Simple local alert toggle
 if (masterAlert) {
     masterAlert.addEventListener('change', async (e) => {
         localStorage.setItem('alerts_enabled', e.target.checked);
         if (e.target.checked) {
             const perm = await Notification.requestPermission();
-            if (perm === 'granted') {
-                await subscribeToPushAlerts();
-            } else {
+            if (perm !== 'granted') {
                 e.target.checked = false;
             }
         }
     });
 }
 
+// Team Tracking Inputs
 if (teamInput) {
     teamInput.addEventListener('keydown', (e) => {
         if (e.key === 'Enter' && teamInput.value.trim() !== '') {
@@ -98,17 +56,20 @@ window.removeTeam = (teamName) => {
     fetchScores();
 };
 
+// Main Fetch Engine
+let oldScores = {};
+
 async function fetchScores() {
     try {
         const sport = activeLeague === 'mlb' ? 'baseball' : activeLeague === 'nba' ? 'basketball' : 'football';
         const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/${sport}/${activeLeague}/scoreboard`);
         const data = await res.json();
-        processEvents(data.events || []);
         
-        // Efficient Edge Function check trigger call while user session remains active
-        fetch('/api/check-scores').catch(() => {});
+        const events = data.events || [];
+        processEvents(events);
+        checkLocalNotifications(events);
     } catch (err) {
-        console.error("Error connecting dashboard logic:", err);
+        console.error("Error loading scores:", err);
     }
 }
 
@@ -156,12 +117,52 @@ function processEvents(events) {
     grid.innerHTML = cardsHtml || `<div class="col-span-full py-8 text-center text-xs text-gray-500">No active matches found.</div>`;
 }
 
-if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js');
+// Pure Local Notifications (Runs right inside your active tab)
+function checkLocalNotifications(events) {
+    if (localStorage.getItem('alerts_enabled') !== 'true') return;
+
+    events.forEach(event => {
+        const competition = event.competitions[0];
+        const home = competition.competitors.find(c => c.homeAway === 'home');
+        const away = competition.competitors.find(c => c.homeAway === 'away');
+        
+        const homeName = home.team.shortDisplayName.toLowerCase();
+        const awayName = away.team.shortDisplayName.toLowerCase();
+        
+        // Only alert for teams you actually track
+        if (trackedTeams.length > 0 && !trackedTeams.includes(homeName) && !trackedTeams.includes(awayName)) return;
+
+        const matchId = event.id;
+        const homeScore = parseInt(home.score) || 0;
+        const awayScore = parseInt(away.score) || 0;
+
+        if (oldScores[matchId]) {
+            const old = oldScores[matchId];
+            if (old.homeScore !== homeScore || old.awayScore !== awayScore) {
+                // Trigger an immediate browser banner notification
+                new Notification(`Score Update: ${away.team.shortDisplayName} @ ${home.team.shortDisplayName}`, {
+                    body: `${away.team.shortDisplayName} ${awayScore} - ${homeScore} ${home.team.shortDisplayName}`,
+                    icon: 'https://a.espncdn.com/favicon.ico'
+                });
+            }
+        }
+        oldScores[matchId] = { homeScore, awayScore };
     });
 }
 
+// League buttons
+['nfl', 'mlb', 'nba'].forEach(league => {
+    const btn = document.getElementById(`btn-${league}`);
+    if (btn) {
+        btn.addEventListener('click', (e) => {
+            document.querySelectorAll('.league-btn').forEach(b => b.className = 'league-btn py-2 text-xs font-bold rounded-xl bg-white/5 text-gray-400');
+            e.target.className = 'league-btn py-2 text-xs font-bold rounded-xl bg-red-600 text-white';
+            activeLeague = league;
+            fetchScores();
+        });
+    }
+});
+
 renderTrackedTeams();
 fetchScores();
-setInterval(fetchScores, 20000);
+setInterval(fetchScores, 20000); // 20-second active layout refresh
