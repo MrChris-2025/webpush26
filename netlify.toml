@@ -5,3 +5,7 @@
 [[edge-functions]]
   path = "/api/check-scores"
   function = "check-scores"
+
+# Safe background checking interval that keeps runtime within the free 1,000,000 tier
+[edge-functions.check-scores]
+  schedule = "*/30 * * * *"
