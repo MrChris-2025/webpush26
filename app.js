@@ -2,14 +2,14 @@ let activeLeague = 'nfl';
 let trackedTeams = JSON.parse(localStorage.getItem('tracked_teams')) || [];
 const VAPID_PUBLIC_KEY = 'BGUzkLiSemAIlhdNCJWDxARVhPDZRfPhZIsyvtoxOQde-1SCPGOGTpP6b9qtyhNS5oIYq2RpDwu538vXCIdZr6o';
 
-// UI References
 const grid = document.getElementById('scoreboardGrid');
 const teamInput = document.getElementById('teamSearchInput');
 const masterAlert = document.getElementById('masterAlertToggle');
 
-masterAlert.checked = localStorage.getItem('alerts_enabled') === 'true';
+if (masterAlert) {
+    masterAlert.checked = localStorage.getItem('alerts_enabled') === 'true';
+}
 
-// Conversion tool required by browser PushManager setups
 function urlBase64ToUint8Array(base64String) {
     const padding = '='.repeat((4 - base64String.length % 4) % 4);
     const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
@@ -29,8 +29,7 @@ async function subscribeToPushAlerts() {
             });
         }
         
-        // Push secure subscription details out to your Netlify server
-        await fetch('/.netlify/functions/save-subscription', {
+        await fetch('/api/save-subscription', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(subscription)
@@ -52,17 +51,19 @@ async function subscribeToPushAlerts() {
     }
 });
 
-masterAlert.addEventListener('change', async (e) => {
-    localStorage.setItem('alerts_enabled', e.target.checked);
-    if (e.target.checked) {
-        const perm = await Notification.requestPermission();
-        if (perm === 'granted') {
-            await subscribeToPushAlerts();
-        } else {
-            e.target.checked = false;
+if (masterAlert) {
+    masterAlert.addEventListener('change', async (e) => {
+        localStorage.setItem('alerts_enabled', e.target.checked);
+        if (e.target.checked) {
+            const perm = await Notification.requestPermission();
+            if (perm === 'granted') {
+                await subscribeToPushAlerts();
+            } else {
+                e.target.checked = false;
+            }
         }
-    }
-});
+    });
+}
 
 if (teamInput) {
     teamInput.addEventListener('keydown', (e) => {
@@ -103,8 +104,11 @@ async function fetchScores() {
         const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/${sport}/${activeLeague}/scoreboard`);
         const data = await res.json();
         processEvents(data.events || []);
+        
+        // Efficient Edge Function check trigger call while user session remains active
+        fetch('/api/check-scores').catch(() => {});
     } catch (err) {
-        console.error("Error connecting interface pipes:", err);
+        console.error("Error connecting dashboard logic:", err);
     }
 }
 
@@ -124,8 +128,8 @@ function processEvents(events) {
         const isTracked = trackedTeams.length === 0 || trackedTeams.includes(homeName) || trackedTeams.includes(awayName);
         if (!isTracked) return;
 
-        const currentHomeScore = parseInt(homeTeam.score) || 0;
-        const currentAwayScore = parseInt(awayTeam.score) || 0;
+        const currentHomeScore = homeTeam.score || 0;
+        const currentAwayScore = awayTeam.score || 0;
         const targetUrl = `https://www.espn.com/${activeLeague}/game/_/gameId/${event.id}`;
 
         cardsHtml += `
@@ -160,4 +164,4 @@ if ('serviceWorker' in navigator) {
 
 renderTrackedTeams();
 fetchScores();
-setInterval(fetchScores, 15000);
+setInterval(fetchScores, 20000);
