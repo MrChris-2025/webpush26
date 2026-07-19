@@ -1,1 +1,17 @@
-
+{
+  "short_name": "Sports Alerts",
+  "name": "Live Sports Alerts PWA",
+  "icons": [
+    {
+      "src": "/icon-512.PNG",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "any maskable"
+    }
+  ],
+  "start_url": "/",
+  "background_color": "#121212",
+  "theme_color": "#ff2d55",
+  "display": "standalone",
+  "orientation": "portrait"
+}
