@@ -43,6 +43,7 @@ function broadcastNativePush(title, body, icon, tag) {
 // Local DOM Toast Handler
 function triggerLocalToast(league, title, subtitle, msg, logo) {
     const container = document.getElementById('sports-toast-container');
+    if (!container) return;
     const id = 'toast_' + Math.random().toString(36).substr(2, 9);
     const config = leagueConfigs[league] || {};
     
@@ -116,13 +117,15 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('topBtnAll').addEventListener('click', () => { currentFilter = 'all'; buildScoreboardGrid(); });
     document.getElementById('searchInput').addEventListener('input', buildScoreboardGrid);
 
-    // FIXED IPAD SAFE DIAGNOSTIC INTERACTION
+    // FIXED: EXTERNAL HOME-SCREEN NATIVE PUSH TESTING PIPELINE
     const testBtn = document.getElementById('testBtnMock');
     if (testBtn) {
-        testBtn.addEventListener('click', () => {
+        testBtn.addEventListener('click', async () => {
             try {
-                // 1. Force state simulation update
-                espnScoresCache['gotham_vs_metropolis'] = {
+                const matchKey = 'gotham_vs_metropolis';
+                
+                // 1. Force visual card insertion
+                espnScoresCache[matchKey] = {
                     homeScore: 24,
                     awayScore: 21,
                     clock: "4th Quarter - 2:00",
@@ -133,12 +136,36 @@ document.addEventListener('DOMContentLoaded', () => {
                 };
                 buildScoreboardGrid();
 
-                // 2. Fallback execution to check layout functions
-                triggerLocalToast('nfl', 'Metropolis @ Gotham', '4th Quarter - 2:00', 'TOUCHDOWN GOTHAM (21-24)', null);
+                // 2. Transmit notification message via native service worker directly to your iPad
+                if ('serviceWorker' in navigator && localStorage.getItem('global_push_notifications') === 'true') {
+                    const registration = await navigator.serviceWorker.ready;
+                    const subscription = await registration.pushManager.getSubscription();
+                    
+                    if (subscription) {
+                        await fetch('/.netlify/functions/send-push', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                payload: {
+                                    title: 'Metropolis @ Gotham',
+                                    body: '[4th Quarter - 2:00] TOUCHDOWN GOTHAM (21-24)',
+                                    url: window.location.origin
+                                },
+                                subscriptions: [subscription] 
+                            })
+                        });
+                    } else {
+                        alert("Device subscription context not found. Please turn the 'System Push Alerts' switch OFF and back ON.");
+                        return;
+                    }
+                } else {
+                    alert("Ensure 'System Push Alerts' is toggled ON before tapping test.");
+                    return;
+                }
                 
-                alert("State update successful! If toast did not slide into view, your index.html is missing the #sports-toast-container div.");
+                alert("Triggered! Now tap Close and IMMEDIATELY swipe up to go to your iPad home screen.");
             } catch (error) {
-                alert("Error detected inside layout logic: " + error.message);
+                alert("Network Push Error: " + error.message);
             }
         });
     }
