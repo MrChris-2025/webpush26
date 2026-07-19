@@ -21,10 +21,10 @@ masterAlert.checked = localStorage.getItem('alerts_enabled') === 'true';
 });
 
 // Update Alerts Config
-masterAlert.addEventListener('change', (e) => {
+masterAlert.addEventListener('change', async (e) => {
     localStorage.setItem('alerts_enabled', e.target.checked);
     if (e.target.checked && Notification.permission !== 'granted') {
-        Notification.requestPermission();
+        await Notification.requestPermission();
     }
 });
 
@@ -62,7 +62,8 @@ window.removeTeam = (teamName) => {
 // Pull Engine Data from ESPN Scoreboard API
 async function fetchScores() {
     try {
-        const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/${activeLeague === 'mlb' ? 'baseball' : activeLeague === 'nba' ? 'basketball' : 'football'}/${activeLeague}/scoreboard`);
+        const sport = activeLeague === 'mlb' ? 'baseball' : activeLeague === 'nba' ? 'basketball' : 'football';
+        const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/${sport}/${activeLeague}/scoreboard`);
         const data = await res.json();
         processEvents(data.events || []);
     } catch (err) {
@@ -82,7 +83,7 @@ function processEvents(events) {
         const homeName = homeTeam.team.shortDisplayName.toLowerCase();
         const awayName = awayTeam.team.shortDisplayName.toLowerCase();
         
-        // Filter out if the user is explicitly filtering down targeted teams list
+        // Filter match views to target specific teams if user configuration rules exist
         const isTracked = trackedTeams.length === 0 || trackedTeams.includes(homeName) || trackedTeams.includes(awayName);
         if (!isTracked) return;
 
@@ -90,23 +91,21 @@ function processEvents(events) {
         const currentAwayScore = parseInt(awayTeam.score);
         const matchId = event.id;
 
-        // Check if game data has shifted for notifications
+        // Check cache to monitor live status modifications
         if (scoreCache[matchId]) {
             const oldData = scoreCache[matchId];
             if (masterAlert.checked && (oldData.homeScore !== currentHomeScore || oldData.awayScore !== currentAwayScore)) {
                 triggerSystemNotification(
-                    `${awayTeam.team.shortDisplayName} @ ${homeTeam.team.shortDisplayName}`,
-                    `Score Update: ${awayTeam.team.shortDisplayName} ${currentAwayScore} - ${currentHomeScore} ${homeTeam.team.shortDisplayName} [${status}]`
+                    `Score Shift: ${awayTeam.team.shortDisplayName} @ ${homeTeam.team.shortDisplayName}`,
+                    `${awayTeam.team.shortDisplayName} ${currentAwayScore} - ${currentHomeScore} ${homeTeam.team.shortDisplayName} [${status}]`
                 );
             }
         }
 
-        // Keep local cache fresh
         scoreCache[matchId] = { homeScore: currentHomeScore, awayScore: currentAwayScore };
 
-        // Generate Interface Data Cards
         cardsHtml += `
-            <div class="glass-card p-4 rounded-xl flex flex-col justify-between relative overflow-hidden">
+            <div class="match-card p-4 rounded-xl flex flex-col justify-between relative overflow-hidden">
                 <div class="text-[10px] uppercase font-bold text-gray-500 tracking-wider mb-2">${status}</div>
                 <div class="space-y-2">
                     <div class="flex justify-between items-center">
@@ -121,7 +120,7 @@ function processEvents(events) {
             </div>`;
     });
 
-    grid.innerHTML = cardsHtml || `<div class="col-span-full py-8 text-center text-xs text-gray-500">No matching events found for current configuration.</div>`;
+    grid.innerHTML = cardsHtml || `<div class="col-span-full py-8 text-center text-xs text-gray-500">No active matches found.</div>`;
 }
 
 function triggerSystemNotification(title, message) {
@@ -130,7 +129,19 @@ function triggerSystemNotification(title, message) {
     }
 }
 
-// Kickstart Background Tracking Automation Loop
+// Simulation Testing Button Trigger
+document.getElementById('mockTriggerBtn').addEventListener('click', () => {
+    if (Notification.permission !== 'granted') {
+        alert("Turn on System Alerts first!");
+        return;
+    }
+    triggerSystemNotification(
+        "⚡ test Game Alert",
+        "Score Shift Simulation: Away 24 - 21 Home [Live]"
+    );
+});
+
+// Kickstart Loop Processing
 renderTrackedTeams();
 fetchScores();
-setInterval(fetchScores, 15000); // Polling update intervals set to 15 seconds
+setInterval(fetchScores, 15000);
