@@ -1,16 +1,45 @@
 let activeLeague = 'nfl';
 let trackedTeams = JSON.parse(localStorage.getItem('tracked_teams')) || [];
-let scoreCache = {};
+const VAPID_PUBLIC_KEY = 'BGUzkLiSemAIlhdNCJWDxARVhPDZRfPhZIsyvtoxOQde-1SCPGOGTpP6b9qtyhNS5oIYq2RpDwu538vXCIdZr6o';
 
 // UI References
 const grid = document.getElementById('scoreboardGrid');
 const teamInput = document.getElementById('teamSearchInput');
 const masterAlert = document.getElementById('masterAlertToggle');
 
-// Load configurations
 masterAlert.checked = localStorage.getItem('alerts_enabled') === 'true';
 
-// Initialize League Switches
+// Conversion tool required by browser PushManager setups
+function urlBase64ToUint8Array(base64String) {
+    const padding = '='.repeat((4 - base64String.length % 4) % 4);
+    const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
+    return new Uint8Array([...window.atob(base64)].map(c => c.charCodeAt(0)));
+}
+
+async function subscribeToPushAlerts() {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+    try {
+        const registration = await navigator.serviceWorker.ready;
+        let subscription = await registration.pushManager.getSubscription();
+        
+        if (!subscription) {
+            subscription = await registration.pushManager.subscribe({
+                userVisibleOnly: true,
+                applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+            });
+        }
+        
+        // Push secure subscription details out to your Netlify server
+        await fetch('/.netlify/functions/save-subscription', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(subscription)
+        });
+    } catch (e) {
+        console.error("Subscription pipeline blocked:", e);
+    }
+}
+
 ['nfl', 'mlb', 'nba'].forEach(league => {
     const btn = document.getElementById(`btn-${league}`);
     if (btn) {
@@ -23,17 +52,18 @@ masterAlert.checked = localStorage.getItem('alerts_enabled') === 'true';
     }
 });
 
-// Update Alerts Config
-if (masterAlert) {
-    masterAlert.addEventListener('change', async (e) => {
-        localStorage.setItem('alerts_enabled', e.target.checked);
-        if (e.target.checked && Notification.permission !== 'granted') {
-            await Notification.requestPermission();
+masterAlert.addEventListener('change', async (e) => {
+    localStorage.setItem('alerts_enabled', e.target.checked);
+    if (e.target.checked) {
+        const perm = await Notification.requestPermission();
+        if (perm === 'granted') {
+            await subscribeToPushAlerts();
+        } else {
+            e.target.checked = false;
         }
-    });
-}
+    }
+});
 
-// Manage Targeted Teams Preference Lookups
 if (teamInput) {
     teamInput.addEventListener('keydown', (e) => {
         if (e.key === 'Enter' && teamInput.value.trim() !== '') {
@@ -67,7 +97,6 @@ window.removeTeam = (teamName) => {
     fetchScores();
 };
 
-// Pull Engine Data from ESPN Scoreboard API
 async function fetchScores() {
     try {
         const sport = activeLeague === 'mlb' ? 'baseball' : activeLeague === 'nba' ? 'basketball' : 'football';
@@ -75,7 +104,7 @@ async function fetchScores() {
         const data = await res.json();
         processEvents(data.events || []);
     } catch (err) {
-        console.error("Error connecting data pipes:", err);
+        console.error("Error connecting interface pipes:", err);
     }
 }
 
@@ -97,23 +126,7 @@ function processEvents(events) {
 
         const currentHomeScore = parseInt(homeTeam.score) || 0;
         const currentAwayScore = parseInt(awayTeam.score) || 0;
-        const matchId = event.id;
-        
-        const targetUrl = `https://www.espn.com/${activeLeague}/game/_/gameId/${matchId}`;
-
-        // Monitor actual changes for live push alerts
-        if (scoreCache[matchId]) {
-            const oldData = scoreCache[matchId];
-            if (masterAlert && masterAlert.checked && (oldData.homeScore !== currentHomeScore || oldData.awayScore !== currentAwayScore)) {
-                triggerSystemNotification(
-                    `Score Update: ${awayTeam.team.shortDisplayName} @ ${homeTeam.team.shortDisplayName}`,
-                    `${awayTeam.team.shortDisplayName} ${currentAwayScore} - ${currentHomeScore} ${homeTeam.team.shortDisplayName} [${status}]`,
-                    targetUrl
-                );
-            }
-        }
-
-        scoreCache[matchId] = { homeScore: currentHomeScore, awayScore: currentAwayScore };
+        const targetUrl = `https://www.espn.com/${activeLeague}/game/_/gameId/${event.id}`;
 
         cardsHtml += `
             <div class="match-card p-4 rounded-xl flex flex-col justify-between relative overflow-hidden">
@@ -139,37 +152,12 @@ function processEvents(events) {
     grid.innerHTML = cardsHtml || `<div class="col-span-full py-8 text-center text-xs text-gray-500">No active matches found.</div>`;
 }
 
-async function triggerSystemNotification(title, body, targetUrl) {
-    const destination = targetUrl || window.location.origin;
-    try {
-        if ('serviceWorker' in navigator) {
-            const registration = await navigator.serviceWorker.ready;
-            if (registration.active) {
-                registration.active.postMessage({
-                    type: 'SHOW_NOTIFICATION',
-                    title: title,
-                    body: body,
-                    url: destination
-                });
-                return;
-            }
-        }
-        new Notification(title, { body });
-    } catch (err) {
-        new Notification(title, { body });
-    }
-}
-
-// Service Worker Registration Handler
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js')
-            .then(reg => console.log('Service Worker Live:', reg.scope))
-            .catch(err => console.error('Worker registration failed:', err));
+        navigator.serviceWorker.register('./sw.js');
     });
 }
 
-// Kickstart Loop Processing
 renderTrackedTeams();
 fetchScores();
 setInterval(fetchScores, 15000);
