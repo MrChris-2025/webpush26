@@ -1,3 +1,5 @@
+// sw.js - Production Background Notification Router
+
 self.addEventListener('install', (event) => {
     self.skipWaiting();
 });
@@ -6,20 +8,25 @@ self.addEventListener('activate', (event) => {
     event.waitUntil(clients.claim());
 });
 
-self.addEventListener('message', (event) => {
-    if (event.data && event.data.type === 'SHOW_NOTIFICATION') {
-        const title = event.data.title;
+// Wake loop event listener responding directly to server network pushes
+self.addEventListener('push', (event) => {
+    if (!event.data) return;
+
+    try {
+        const data = event.data.json();
         const options = {
-            body: event.data.body,
-            icon: event.data.icon || 'https://a.espncdn.com/favicon.ico',
+            body: data.body,
+            icon: 'https://a.espncdn.com/favicon.ico',
             badge: 'https://a.espncdn.com/favicon.ico',
-            vibrate: [100, 50, 100],
-            data: { url: event.data.url || self.location.origin }
+            vibrate: [200, 100, 200],
+            data: { url: data.url || '/' }
         };
-        
+
         event.waitUntil(
-            self.registration.showNotification(title, options)
+            self.registration.showNotification(data.title, options)
         );
+    } catch (err) {
+        console.error("Push payload processing error:", err);
     }
 });
 
