@@ -1,6 +1,6 @@
 import { espnScoresCache, leagueConfigs, fetchEspnScores } from './espn-service.js';
 
-const VAPID_PUBLIC_KEY = 'YOUR_PUBLIC_VAPID_KEY_HERE';
+const VAPID_PUBLIC_KEY = 'BCT1QPZnQ8TpPtwPp2XtiuWUyeCPf-yFVMHxH09Bd0RDVypw4CvegNpfnYYCYPbvlGmayIdmAYbG_QcCbSMBeBU';
 let currentFilter = 'live';
 
 // Push Notification Registration Helper
