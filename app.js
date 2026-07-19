@@ -1,15 +1,17 @@
 let activeLeague = 'mlb'; 
 let trackedTeams = JSON.parse(localStorage.getItem('tracked_teams')) || [];
+let oldScores = {};
 
 const grid = document.getElementById('scoreboardGrid');
 const teamInput = document.getElementById('teamSearchInput');
 const masterAlert = document.getElementById('masterAlertToggle');
+const simBtn = document.getElementById('btn-sim'); // Add this button to your HTML for testing
 
 if (masterAlert) {
     masterAlert.checked = localStorage.getItem('alerts_enabled') === 'true';
 }
 
-// Simple local alert toggle
+// Master Alert Permission Toggle
 if (masterAlert) {
     masterAlert.addEventListener('change', async (e) => {
         localStorage.setItem('alerts_enabled', e.target.checked);
@@ -17,12 +19,29 @@ if (masterAlert) {
             const perm = await Notification.requestPermission();
             if (perm !== 'granted') {
                 e.target.checked = false;
+                alert("Please allow notifications in iPad Settings for Safari/PWA.");
             }
         }
     });
 }
 
-// Team Tracking Inputs
+// SIMULATION TRIGGER: Fakes a score update instantly for testing
+if (simBtn) {
+    simBtn.addEventListener('click', () => {
+        if (localStorage.getItem('alerts_enabled') !== 'true') {
+            alert("Turn on the System Alerts toggle first!");
+            return;
+        }
+        
+        // Immediate simulated notification banner
+        new Notification("⚾ SIMULATION: Score Update", {
+            body: "Dodgers 4 - 3 Giants [Top 9th]",
+            icon: 'https://a.espncdn.com/favicon.ico'
+        });
+    });
+}
+
+// Add Tracked Teams via Input
 if (teamInput) {
     teamInput.addEventListener('keydown', (e) => {
         if (e.key === 'Enter' && teamInput.value.trim() !== '') {
@@ -56,9 +75,7 @@ window.removeTeam = (teamName) => {
     fetchScores();
 };
 
-// Main Fetch Engine
-let oldScores = {};
-
+// Main Fetch Engine (Uses iPad resource loop, completely free)
 async function fetchScores() {
     try {
         const sport = activeLeague === 'mlb' ? 'baseball' : activeLeague === 'nba' ? 'basketball' : 'football';
@@ -117,7 +134,7 @@ function processEvents(events) {
     grid.innerHTML = cardsHtml || `<div class="col-span-full py-8 text-center text-xs text-gray-500">No active matches found.</div>`;
 }
 
-// Pure Local Notifications (Runs right inside your active tab)
+// Live Notification Monitor
 function checkLocalNotifications(events) {
     if (localStorage.getItem('alerts_enabled') !== 'true') return;
 
@@ -129,7 +146,6 @@ function checkLocalNotifications(events) {
         const homeName = home.team.shortDisplayName.toLowerCase();
         const awayName = away.team.shortDisplayName.toLowerCase();
         
-        // Only alert for teams you actually track
         if (trackedTeams.length > 0 && !trackedTeams.includes(homeName) && !trackedTeams.includes(awayName)) return;
 
         const matchId = event.id;
@@ -139,7 +155,6 @@ function checkLocalNotifications(events) {
         if (oldScores[matchId]) {
             const old = oldScores[matchId];
             if (old.homeScore !== homeScore || old.awayScore !== awayScore) {
-                // Trigger an immediate browser banner notification
                 new Notification(`Score Update: ${away.team.shortDisplayName} @ ${home.team.shortDisplayName}`, {
                     body: `${away.team.shortDisplayName} ${awayScore} - ${homeScore} ${home.team.shortDisplayName}`,
                     icon: 'https://a.espncdn.com/favicon.ico'
@@ -150,7 +165,7 @@ function checkLocalNotifications(events) {
     });
 }
 
-// League buttons
+// Navigation Tabs
 ['nfl', 'mlb', 'nba'].forEach(league => {
     const btn = document.getElementById(`btn-${league}`);
     if (btn) {
@@ -165,4 +180,4 @@ function checkLocalNotifications(events) {
 
 renderTrackedTeams();
 fetchScores();
-setInterval(fetchScores, 20000); // 20-second active layout refresh
+setInterval(fetchScores, 20000); 
