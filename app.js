@@ -92,21 +92,23 @@ function processEvents(events) {
         const homeName = homeTeam.team.shortDisplayName.toLowerCase();
         const awayName = awayTeam.team.shortDisplayName.toLowerCase();
         
-        // Filter match views to target specific teams if user configuration rules exist
         const isTracked = trackedTeams.length === 0 || trackedTeams.includes(homeName) || trackedTeams.includes(awayName);
         if (!isTracked) return;
 
         const currentHomeScore = parseInt(homeTeam.score) || 0;
         const currentAwayScore = parseInt(awayTeam.score) || 0;
         const matchId = event.id;
+        
+        const targetUrl = `https://www.espn.com/${activeLeague}/game/_/gameId/${matchId}`;
 
-        // Check cache to monitor live status modifications
+        // Monitor actual changes for live push alerts
         if (scoreCache[matchId]) {
             const oldData = scoreCache[matchId];
             if (masterAlert && masterAlert.checked && (oldData.homeScore !== currentHomeScore || oldData.awayScore !== currentAwayScore)) {
                 triggerSystemNotification(
-                    `Score Shift: ${awayTeam.team.shortDisplayName} @ ${homeTeam.team.shortDisplayName}`,
-                    `${awayTeam.team.shortDisplayName} ${currentAwayScore} - ${currentHomeScore} ${homeTeam.team.shortDisplayName} [${status}]`
+                    `Score Update: ${awayTeam.team.shortDisplayName} @ ${homeTeam.team.shortDisplayName}`,
+                    `${awayTeam.team.shortDisplayName} ${currentAwayScore} - ${currentHomeScore} ${homeTeam.team.shortDisplayName} [${status}]`,
+                    targetUrl
                 );
             }
         }
@@ -115,7 +117,12 @@ function processEvents(events) {
 
         cardsHtml += `
             <div class="match-card p-4 rounded-xl flex flex-col justify-between relative overflow-hidden">
-                <div class="text-[10px] uppercase font-bold text-gray-500 tracking-wider mb-2">${status}</div>
+                <div class="flex justify-between items-center mb-2">
+                    <span class="text-[10px] uppercase font-bold text-gray-500 tracking-wider">${status}</span>
+                    <a href="${targetUrl}" target="_blank" class="text-[10px] font-bold text-red-400 hover:underline">
+                        Details <i class="fa-solid fa-arrow-up-right-from-square text-[8px]"></i>
+                    </a>
+                </div>
                 <div class="space-y-2">
                     <div class="flex justify-between items-center">
                         <span class="text-sm font-semibold text-white capitalize">${awayTeam.team.displayName}</span>
@@ -132,7 +139,8 @@ function processEvents(events) {
     grid.innerHTML = cardsHtml || `<div class="col-span-full py-8 text-center text-xs text-gray-500">No active matches found.</div>`;
 }
 
-async function triggerSystemNotification(title, body) {
+async function triggerSystemNotification(title, body, targetUrl) {
+    const destination = targetUrl || window.location.origin;
     try {
         if ('serviceWorker' in navigator) {
             const registration = await navigator.serviceWorker.ready;
@@ -140,7 +148,8 @@ async function triggerSystemNotification(title, body) {
                 registration.active.postMessage({
                     type: 'SHOW_NOTIFICATION',
                     title: title,
-                    body: body
+                    body: body,
+                    url: destination
                 });
                 return;
             }
@@ -149,21 +158,6 @@ async function triggerSystemNotification(title, body) {
     } catch (err) {
         new Notification(title, { body });
     }
-}
-
-// Simulation Testing Button Trigger
-const mockBtn = document.getElementById('mockTriggerBtn');
-if (mockBtn) {
-    mockBtn.addEventListener('click', () => {
-        if (Notification.permission !== 'granted') {
-            alert("Turn on System Alerts first!");
-            return;
-        }
-        triggerSystemNotification(
-            "⚡ Test Game Alert",
-            "Score Shift Simulation: Away 24 - 21 Home [Live]"
-        );
-    });
 }
 
 // Service Worker Registration Handler
