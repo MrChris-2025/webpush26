@@ -73,8 +73,8 @@ function buildScoreboardGrid() {
         const game = espnScoresCache[key];
         const [home, away] = key.split('_vs_');
 
+        // FIXED: Only skip if filtering explicitly for live games and the game isn't live
         if (currentFilter === 'live' && !game.isLive) continue;
-        if (currentFilter === 'all' && game.isLive) continue;
         if (searchVal && !home.includes(searchVal) && !away.includes(searchVal)) continue;
 
         html += `
