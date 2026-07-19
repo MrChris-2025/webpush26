@@ -116,20 +116,30 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('topBtnAll').addEventListener('click', () => { currentFilter = 'all'; buildScoreboardGrid(); });
     document.getElementById('searchInput').addEventListener('input', buildScoreboardGrid);
 
-    // SIMPLE MOCK TEST BUTTON INTERACTION
+    // FIXED IPAD SAFE DIAGNOSTIC INTERACTION
     const testBtn = document.getElementById('testBtnMock');
     if (testBtn) {
         testBtn.addEventListener('click', () => {
-            espnScoresCache['gotham_vs_metropolis'] = {
-                homeScore: 24,
-                awayScore: 21,
-                clock: "4th Quarter - 2:00",
-                isLive: true,
-                isFinal: false,
-                baseballDetails: null,
-                leagueSymbol: "nfl"
-            };
-            buildScoreboardGrid();
+            try {
+                // 1. Force state simulation update
+                espnScoresCache['gotham_vs_metropolis'] = {
+                    homeScore: 24,
+                    awayScore: 21,
+                    clock: "4th Quarter - 2:00",
+                    isLive: true,
+                    isFinal: false,
+                    baseballDetails: null,
+                    leagueSymbol: "nfl"
+                };
+                buildScoreboardGrid();
+
+                // 2. Fallback execution to check layout functions
+                triggerLocalToast('nfl', 'Metropolis @ Gotham', '4th Quarter - 2:00', 'TOUCHDOWN GOTHAM (21-24)', null);
+                
+                alert("State update successful! If toast did not slide into view, your index.html is missing the #sports-toast-container div.");
+            } catch (error) {
+                alert("Error detected inside layout logic: " + error.message);
+            }
         });
     }
 
