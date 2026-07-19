@@ -117,14 +117,14 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('topBtnAll').addEventListener('click', () => { currentFilter = 'all'; buildScoreboardGrid(); });
     document.getElementById('searchInput').addEventListener('input', buildScoreboardGrid);
 
-    // FIXED: EXTERNAL HOME-SCREEN NATIVE PUSH TESTING PIPELINE
+    // DIAGNOSTIC TESTING PIPELINE
     const testBtn = document.getElementById('testBtnMock');
     if (testBtn) {
         testBtn.addEventListener('click', async () => {
             try {
                 const matchKey = 'gotham_vs_metropolis';
                 
-                // 1. Force visual card insertion
+                // 1. Update Layout View
                 espnScoresCache[matchKey] = {
                     homeScore: 24,
                     awayScore: 21,
@@ -136,13 +136,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 };
                 buildScoreboardGrid();
 
-                // 2. Transmit notification message via native service worker directly to your iPad
+                // 2. Network Check Pipeline
                 if ('serviceWorker' in navigator && localStorage.getItem('global_push_notifications') === 'true') {
                     const registration = await navigator.serviceWorker.ready;
                     const subscription = await registration.pushManager.getSubscription();
                     
                     if (subscription) {
-                        await fetch('/.netlify/functions/send-push', {
+                        const response = await fetch('/.netlify/functions/send-push', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({
@@ -154,18 +154,27 @@ document.addEventListener('DOMContentLoaded', () => {
                                 subscriptions: [subscription] 
                             })
                         });
+
+                        let resData = {};
+                        try {
+                            resData = await response.json();
+                        } catch(parseErr) {
+                            resData = { error: "Could not parse server response text." };
+                        }
+                        
+                        if (response.ok) {
+                            alert("Server received it perfectly! Tap Close and QUICKLY swipe home now.");
+                        } else {
+                            alert("Server Error (" + response.status + "): " + (resData.error || JSON.stringify(resData)));
+                        }
                     } else {
-                        alert("Device subscription context not found. Please turn the 'System Push Alerts' switch OFF and back ON.");
-                        return;
+                        alert("No device token found. Toggle 'System Push Alerts' OFF and ON again.");
                     }
                 } else {
                     alert("Ensure 'System Push Alerts' is toggled ON before tapping test.");
-                    return;
                 }
-                
-                alert("Triggered! Now tap Close and IMMEDIATELY swipe up to go to your iPad home screen.");
             } catch (error) {
-                alert("Network Push Error: " + error.message);
+                alert("Network / Script Crash: " + error.message);
             }
         });
     }
