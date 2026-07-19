@@ -1,0 +1,9 @@
+{
+  "name": "sports-scoreboard-pwa",
+  "version": "1.0.0",
+  "description": "Live sports scoreboard with push notifications",
+  "main": "app.js",
+  "dependencies": {
+    "web-push": "^3.6.0"
+  }
+}
