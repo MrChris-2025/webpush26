@@ -1,49 +1,34 @@
-const VAPID_PUBLIC_KEY = 'YOUR_PUBLIC_VAPID_KEY_HERE';
-
-// Convert base64 VAPID key to Uint8Array for the browser
-function urlBase64ToUint8Array(base64String) {
-    const padding = '='.repeat((4 - base64String.length % 4) % 4);
-    const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
-    const rawData = window.atob(base64);
-    const outputArray = new Uint8Array(rawData.length);
-    for (let i = 0; i < rawData.length; ++i) {
-        outputArray[i] = rawData.charCodeAt(i);
-    }
-    return outputArray;
-}
-
-export async function initPushNotifications() {
-    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-        console.log('Push notifications not supported on this device.');
-        return;
-    }
-
+self.addEventListener('push', function(event) {
+    if (!event.data) return;
+    
     try {
-        // 1. Register the worker file located in your public/root directory
-        const registration = await navigator.serviceWorker.register('/sw.js');
-        
-        // 2. Request user permission
-        const permission = await Notification.requestPermission();
-        if (permission !== 'granted') return;
+        const data = event.data.json();
+        const options = {
+            body: data.body,
+            icon: data.icon || '/default-sports-icon.png',
+            badge: '/badge-icon.png',
+            data: { url: data.url || '/' },
+            tag: data.tag || 'score-update', // Overwrites previous toast if same match
+            vibrate: [200, 100, 200]
+        };
 
-        // 3. Subscribe to push service
-        let subscription = await registration.pushManager.getSubscription();
-        if (!subscription) {
-            subscription = await registration.pushManager.subscribe({
-                userVisibleOnly: true,
-                applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
-            });
-        }
-
-        // 4. Send subscription data to your Netlify function to store it
-        await fetch('/.netlify/functions/save-subscription', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(subscription)
-        });
-
-        console.log('Successfully subscribed to Web Push!');
-    } catch (err) {
-        console.error('Push subscription failed:', err);
+        event.waitUntil(
+            self.registration.showNotification(data.title, options)
+        );
+    } catch (e) {
+        // Fallback for plain text push messages
+        event.waitUntil(
+            self.registration.showNotification('Sports Update', {
+                body: event.data.text()
+            })
+        );
     }
-}
+});
+
+// Handle notification click to open the app
+self.addEventListener('notificationclick', function(event) {
+    event.notification.close();
+    event.waitUntil(
+        clients.openWindow(event.notification.data.url)
+    );
+});
