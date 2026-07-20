@@ -1,4 +1,4 @@
-const CACHE_NAME = 'espn-pwa-v1';
+const CACHE_NAME = 'espn-pwa-v2';
 
 self.addEventListener('install', () => self.skipWaiting());
 
@@ -8,7 +8,7 @@ self.addEventListener('fetch', (event) => {
   );
 });
 
-// Listener for real Web Push events from Netlify
+// Real background Push Event listener waking up Service Worker
 self.addEventListener('push', (event) => {
   let data = { title: 'Score Update', body: 'New game activity!' };
 
@@ -32,7 +32,7 @@ self.addEventListener('push', (event) => {
   );
 });
 
-// Listener for notification click/tap
+// Handle tap on system notification banner
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
   const targetUrl = event.notification.data?.url || '/';
