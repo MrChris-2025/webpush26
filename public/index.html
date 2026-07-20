@@ -6,20 +6,7 @@
   <title>Sports Scoreboard & Schedules PWA</title>
   
   <link rel="apple-touch-icon" sizes="512x512" href="https://hcforever.nekoweb.org/mo2.png">
-
-  <link rel="manifest" href='data:application/manifest+json,{
-    "name": "Sports Scoreboard & Schedules",
-    "short_name": "SportsPWA",
-    "start_url": ".",
-    "display": "standalone",
-    "background_color": "#121212",
-    "theme_color": "#007bff",
-    "icons": [{
-      "src": "https://hcforever.nekoweb.org/mo2.png",
-      "sizes": "512x512",
-      "type": "image/png"
-    }]
-  }'>
+  <link rel="manifest" href="/manifest.webmanifest">
 
   <style>
     :root {
@@ -726,7 +713,6 @@
       }, 15000);
     }
 
-    // Register Service Worker and fetch initial data
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('/sw.js')
         .then(async (reg) => {
