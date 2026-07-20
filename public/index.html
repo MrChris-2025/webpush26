@@ -1,1 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SmartBin Notification</title>
 
+        
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="hc Scoreboard">
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="manifest" href="manifest.json">
+
+    
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      background: #f0f2f5;
+      margin: 0;
+    }
+    .card {
+      background: white;
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 16px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+    h2 {
+      color: #4361ee;
+      margin: 0 0 8px;
+    }
+    p {
+      font-size: 13px;
+      color: #6c757d;
+      margin: 0 0 10px;
+    }
+    .btn {
+      width: 100%;
+      padding: 14px;
+      border: none;
+      border-radius: 8px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 10px;
+      color: white;
+    }
+    .btn-blue { background: #4361ee; }
+    .btn-green { background: #2dc653; }
+    .btn-orange { background: #f4a261; }
+    .box {
+      background: #f8f9fa;
+      border: 1px solid #dee2e6;
+      border-radius: 8px;
+      padding: 12px;
+      word-break: break-all;
+      font-size: 11px;
+      min-height: 50px;
+      margin: 10px 0;
+    }
+    .success {
+      background: #d4edda;
+      color: #155724;
+      padding: 10px;
+      border-radius: 8px;
+      margin: 8px 0;
+    }
+    .error {
+      background: #f8d7da;
+      color: #721c24;
+      padding: 10px;
+      border-radius: 8px;
+      margin: 8px 0;
+    }
+    .waiting {
+      background: #fff3cd;
+      color: #856404;
+      padding: 10px;
+      border-radius: 8px;
+      margin: 8px 0;
+    }
+  </style>
+</head>
+<body>
+
+<div class="card">
+  <h2>🗑️ SmartBin Notification</h2>
+  <p>Enable push notifications to get alerts when your bin is full</p>
+</div>
+
+<div class="card">
+  <b>Step 1 — Get Token</b>
+  <div id="status" class="waiting">⏳ Registering service worker...</div>
+  <div class="box" id="tokenBox">Token will appear here...</div>
+  <button class="btn btn-blue" onclick="getToken()">
+    📲 Enable Notification
+  </button>
+  <button class="btn btn-green" onclick="copyToken()">
+    📋 Copy Token
+  </button>
+</div>
+
+<div class="card">
+  <b>Step 2 — Subscribe</b>
+  <div class="box" id="subStatus">Get token first, then subscribe</div>
+  <button class="btn btn-orange" onclick="subscribeNow()">
+    🔔 Subscribe to SmartBin Alerts
+  </button>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-messaging-compat.js"></script>
+
+<script>
+// Firebase configuration
+const firebaseConfig = {
+  apiKey: "AIzaSyCD5vdIln1iYinVQFXptElpaW0z0bRC53E",
+  authDomain: "webpush-d0066.firebaseapp.com",
+  projectId: "webpush-d0066",
+  storageBucket: "webpush-d0066.firebasestorage.app",
+  messagingSenderId: "837126945537",
+  appId: "1:837126945537:web:dfd79a0af664298466f900",
+  measurementId: "G-MM6RY00D6T"
+};
+
+const VAPID_KEY  = "BGv1hxGXLe73rGW_np_MyABIgLJ0Fzn82s5W8B3W35agQINORSvF5r_wxhmPBzs0Ig1GC1-sEZiESCyFasaINhQ";
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycby5e3tM25QlWCxaftJyXZeFJSGQgifF4fdZFRk_5D8gdmxcFAWAvRriU8zevOnT3qsB/exec";
+
+// Initialize Firebase
+firebase.initializeApp(firebaseConfig);
+
+let messaging = null;
+let fcmToken = "";
+let swRegistration = null;
+
+// Register Service Worker
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker
+    .register("/smartbin-notification/firebase-messaging-sw.js")
+    .then(registration => {
+      console.log("SW registered successfully:", registration);
+      messaging = firebase.messaging();
+      swRegistration = registration;
+      setStatus("waiting", "⏳ Tap Enable Notification button");
+    })
+    .catch(err => {
+      console.error("SW registration failed:", err);
+      setStatus("error", "❌ Service Worker failed: " + err.message);
+    });
+} else {
+  setStatus("error", "❌ Service Workers are not supported in this browser.");
+}
+
+function getToken() {
+  if (!messaging) {
+    setStatus("error", "❌ Messaging not ready yet. Please refresh or wait a moment.");
+    return;
+  }
+  
+  setStatus("waiting", "⏳ Requesting permission...");
+  
+  Notification.requestPermission().then(permission => {
+    if (permission === "granted") {
+      setStatus("waiting", "⏳ Getting FCM token...");
+      
+      messaging.getToken({ 
+        vapidKey: VAPID_KEY,
+        serviceWorkerRegistration: swRegistration
+      })
+      .then(token => {
+        if (token) {
+          fcmToken = token;
+          document.getElementById("tokenBox").textContent = token;
+          setStatus("success", "✅ Got token! Now tap Subscribe.");
+        } else {
+          setStatus("error", "❌ No token returned.");
+        }
+      })
+      .catch(err => {
+        console.error("Error getting token:", err);
+        setStatus("error", "❌ Token Error: " + err.message);
+      });
+    } else {
+      setStatus("error", "❌ Permission denied.");
+    }
+  });
+}
+
+function copyToken() {
+  if (!fcmToken) {
+    alert("Get token first!");
+    return;
+  }
+  navigator.clipboard.writeText(fcmToken)
+    .then(() => alert("✅ Copied!"))
+    .catch(() => alert("Copy manually:\n\n" + fcmToken));
+}
+
+function subscribeNow() {
+  if (!fcmToken) {
+    alert("Get token first!");
+    return;
+  }
+  
+  const el = document.getElementById("subStatus");
+  el.className = "waiting";
+  el.textContent = "⏳ Subscribing...";
+  
+  fetch(SCRIPT_URL + "?action=subscribe&token=" + encodeURIComponent(fcmToken))
+    .then(r => r.text())
+    .then(t => {
+      el.className = "success";
+      el.textContent = "✅ " + t;
+    })
+    .catch(err => {
+      el.className = "error";
+      el.textContent = "❌ Failed: " + err;
+    });
+}
+
+function setStatus(type, msg) {
+  const el = document.getElementById("status");
+  el.className = type;
+  el.textContent = msg;
+}
+</script>
+</body>
+</html>
