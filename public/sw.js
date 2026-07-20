@@ -1,17 +1,30 @@
-self.addEventListener('push', function(event) {
-  if (!event.data) return;
-  
-  // Parse the sports alert payload sent by your server
-  const data = event.data.json(); 
-  
+const CACHE_NAME = 'espn-pwa-v1';
+
+self.addEventListener('install', () => self.skipWaiting());
+
+self.addEventListener('fetch', (event) => {
+  event.respondWith(
+    fetch(event.request).catch(() => caches.match(event.request))
+  );
+});
+
+// Listener for real Web Push events from Netlify
+self.addEventListener('push', (event) => {
+  let data = { title: 'Score Update', body: 'New game activity!' };
+
+  if (event.data) {
+    try {
+      data = event.data.json();
+    } catch (e) {
+      data.body = event.data.text();
+    }
+  }
+
   const options = {
-    body: data.body, // e.g., "Touchdown! Chiefs 14, 49ers 7 (Q2)"
-    icon: '/icons/icon-192.png',
-    badge: '/icons/badge-72.png', // Small monochrome status bar icon
-    vibrate: [200, 100, 200], // Haptic feedback for game updates
-    data: { url: data.url || '/' }, // Deep link to game stats page
-    tag: 'score-update-' + data.gameId, // Prevents duplicate notification spam
-    renotify: true // Force device to vibrate/sound on every score update
+    body: data.body,
+    icon: data.icon || 'https://hcforever.nekoweb.org/mo2.png',
+    badge: data.badge || 'https://hcforever.nekoweb.org/mo2.png',
+    data: data.data || {}
   };
 
   event.waitUntil(
@@ -19,10 +32,21 @@ self.addEventListener('push', function(event) {
   );
 });
 
-// Open the game dashboard when the user clicks the notification
-self.addEventListener('notificationclick', function(event) {
+// Listener for notification click/tap
+self.addEventListener('notificationclick', (event) => {
   event.notification.close();
+  const targetUrl = event.notification.data?.url || '/';
+
   event.waitUntil(
-    clients.openWindow(event.notification.data.url)
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      for (const client of clientList) {
+        if (client.url === targetUrl && 'focus' in client) {
+          return client.focus();
+        }
+      }
+      if (clients.openWindow) {
+        return clients.openWindow(targetUrl);
+      }
+    })
   );
 });
