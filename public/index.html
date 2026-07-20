@@ -10,39 +10,54 @@
 
   <style>
     :root {
-      --bg-color: #121212;
-      --card-bg: #1e1e1e;
-      --modal-bg: #282828;
+      --bg-color: #0b0f19;
+      --card-bg: rgba(255, 255, 255, 0.06);
+      --card-hover-bg: rgba(255, 255, 255, 0.1);
+      --modal-bg: rgba(18, 24, 38, 0.8);
       --text-color: #ffffff;
-      --accent-color: #007bff;
-      --border-color: #333333;
+      --accent-color: #3b82f6;
+      --accent-glow: rgba(59, 130, 246, 0.4);
+      --border-color: rgba(255, 255, 255, 0.12);
+      --glass-blur: blur(16px);
+      --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.45);
     }
 
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       background-color: var(--bg-color);
+      background-image: 
+        radial-gradient(at 15% 15%, rgba(59, 130, 246, 0.25) 0px, transparent 50%),
+        radial-gradient(at 85% 20%, rgba(139, 92, 246, 0.2) 0px, transparent 50%),
+        radial-gradient(at 50% 85%, rgba(236, 72, 153, 0.15) 0px, transparent 50%);
+      background-attachment: fixed;
       color: var(--text-color);
       margin: 0;
       padding: 0;
       display: flex;
       flex-direction: column;
       align-items: center;
+      min-height: 100vh;
     }
 
     header {
       width: 100%;
-      background-color: var(--card-bg);
+      background: rgba(11, 15, 25, 0.65);
+      backdrop-filter: var(--glass-blur);
+      -webkit-backdrop-filter: var(--glass-blur);
       padding: 1rem 0;
       text-align: center;
       border-bottom: 1px solid var(--border-color);
       position: sticky;
       top: 0;
       z-index: 90;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
     }
 
     h1 {
       margin: 0 0 0.8rem 0;
       font-size: 1.4rem;
+      letter-spacing: 0.5px;
+      text-shadow: 0 2px 10px rgba(0,0,0,0.5);
     }
 
     nav {
@@ -63,24 +78,35 @@
     }
 
     .controls input, .controls select, button {
-      background-color: #2a2a2a;
+      background: rgba(255, 255, 255, 0.08);
+      backdrop-filter: var(--glass-blur);
+      -webkit-backdrop-filter: var(--glass-blur);
       color: var(--text-color);
       border: 1px solid var(--border-color);
-      padding: 0.4rem 0.8rem;
-      border-radius: 6px;
+      padding: 0.45rem 0.85rem;
+      border-radius: 8px;
       font-size: 0.85rem;
+      outline: none;
+      transition: all 0.2s ease;
+    }
+
+    .controls input:focus, .controls select:focus {
+      border-color: var(--accent-color);
+      box-shadow: 0 0 10px var(--accent-glow);
     }
 
     button {
       border-radius: 20px;
       cursor: pointer;
       font-weight: bold;
-      transition: background-color 0.2s;
+      transition: all 0.2s ease;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
     }
 
     button.active, button:hover {
-      background-color: var(--accent-color);
+      background: var(--accent-color);
       border-color: var(--accent-color);
+      box-shadow: 0 0 15px var(--accent-glow);
     }
 
     main {
@@ -97,24 +123,30 @@
     }
 
     .game-card {
-      background-color: var(--card-bg);
+      background: var(--card-bg);
+      backdrop-filter: var(--glass-blur);
+      -webkit-backdrop-filter: var(--glass-blur);
       border: 1px solid var(--border-color);
-      border-radius: 8px;
+      border-radius: 12px;
       padding: 1rem;
       display: flex;
       flex-direction: column;
       gap: 0.6rem;
-      transition: transform 0.1s ease;
+      transition: transform 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
       position: relative;
+      box-shadow: var(--glass-shadow);
     }
 
     .game-card.pinned {
-      border-color: #ffc107;
+      border-color: rgba(255, 193, 7, 0.6);
+      box-shadow: 0 0 15px rgba(255, 193, 7, 0.2), var(--glass-shadow);
       order: -1;
     }
 
     .game-card:hover {
-      transform: translateY(-2px);
+      transform: translateY(-3px);
+      background: var(--card-hover-bg);
+      box-shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.5);
     }
 
     .card-header {
@@ -125,22 +157,26 @@
 
     .status {
       font-size: 0.75rem;
-      color: #888888;
+      color: rgba(255, 255, 255, 0.7);
       text-transform: uppercase;
       font-weight: bold;
+      letter-spacing: 0.5px;
     }
 
     .pin-btn {
       background: none;
       border: none;
-      color: #888;
+      color: rgba(255, 255, 255, 0.5);
       cursor: pointer;
       font-size: 1rem;
       padding: 0 4px;
+      box-shadow: none;
     }
 
-    .pin-btn.active {
+    .pin-btn.active, .pin-btn:hover {
+      background: none;
       color: #ffc107;
+      box-shadow: none;
     }
 
     .team {
@@ -159,11 +195,12 @@
       width: 24px;
       height: 24px;
       object-fit: contain;
+      filter: drop-shadow(0 2px 4px rgba(0,0,0,0.4));
     }
 
     .team-record {
       font-size: 0.8rem;
-      color: #aaaaaa;
+      color: rgba(255, 255, 255, 0.5);
       margin-left: 0.3rem;
     }
 
@@ -181,24 +218,33 @@
 
     .card-actions button {
       font-size: 0.75rem;
-      padding: 0.3rem 0.5rem;
-      border-radius: 4px;
+      padding: 0.35rem 0.5rem;
+      border-radius: 6px;
       flex: 1;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid var(--border-color);
+    }
+
+    .card-actions button:hover {
+      background: var(--accent-color);
     }
 
     .btn-push {
-      background-color: #28a745;
+      background-color: rgba(40, 167, 69, 0.3) !important;
+      border-color: rgba(40, 167, 69, 0.5) !important;
     }
     .btn-push.active {
-      background-color: #dc3545;
-      border-color: #dc3545;
+      background-color: rgba(220, 53, 69, 0.4) !important;
+      border-color: rgba(220, 53, 69, 0.6) !important;
     }
 
     .modal-overlay {
       display: none;
       position: fixed;
       top: 0; left: 0; right: 0; bottom: 0;
-      background: rgba(0, 0, 0, 0.75);
+      background: rgba(0, 0, 0, 0.6);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
       z-index: 100;
       justify-content: center;
       align-items: center;
@@ -210,21 +256,26 @@
     }
 
     .modal-content {
-      background-color: var(--modal-bg);
+      background: var(--modal-bg);
+      backdrop-filter: var(--glass-blur);
+      -webkit-backdrop-filter: var(--glass-blur);
       border: 1px solid var(--border-color);
-      border-radius: 8px;
+      border-radius: 16px;
       width: 100%;
       max-width: 600px;
       max-height: 85vh;
       overflow-y: auto;
       padding: 0 1.5rem 1.5rem 1.5rem;
       position: relative;
+      box-shadow: 0 20px 50px rgba(0,0,0,0.6);
     }
 
     .modal-sticky-header {
       position: sticky;
       top: 0;
-      background-color: var(--modal-bg);
+      background: rgba(18, 24, 38, 0.85);
+      backdrop-filter: var(--glass-blur);
+      -webkit-backdrop-filter: var(--glass-blur);
       padding: 1.5rem 0 1rem 0;
       margin-bottom: 0.5rem;
       border-bottom: 1px solid var(--border-color);
@@ -243,26 +294,29 @@
     .modal-close {
       background: none;
       border: none;
-      color: #aaa;
+      color: rgba(255, 255, 255, 0.6);
       font-size: 1.5rem;
       cursor: pointer;
       padding: 0;
       line-height: 1;
+      box-shadow: none;
     }
 
     .modal-close:hover {
+      background: none;
       color: var(--text-color);
+      box-shadow: none;
     }
 
     .loading, .error {
       text-align: center;
       grid-column: 1 / -1;
       padding: 2rem;
-      color: #888888;
+      color: rgba(255, 255, 255, 0.6);
     }
 
     .list-item {
-      padding: 0.5rem 0;
+      padding: 0.6rem 0;
       border-bottom: 1px solid var(--border-color);
       display: flex;
       justify-content: space-between;
@@ -281,12 +335,15 @@
     }
 
     .toast {
-      background-color: #333;
+      background: rgba(30, 41, 59, 0.75);
+      backdrop-filter: var(--glass-blur);
+      -webkit-backdrop-filter: var(--glass-blur);
       color: #fff;
       padding: 12px 16px;
-      border-radius: 8px;
+      border-radius: 12px;
+      border: 1px solid var(--border-color);
       border-left: 4px solid var(--accent-color);
-      box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+      box-shadow: var(--glass-shadow);
       font-size: 0.85rem;
       animation: fadeIn 0.3s ease;
     }
@@ -346,6 +403,7 @@
     let currentSport = 'football';
     let currentLeague = 'nfl';
     let pollInterval = null;
+    let timerInterval = null;
     let activeModalView = null;
     let userPushSubscription = null;
     
@@ -491,6 +549,38 @@
       return totalRecord?.summary ? `(${totalRecord.summary})` : '';
     }
 
+    function formatGameStatus(event) {
+      const statusType = event.status?.type;
+      
+      if (statusType?.name === 'STATUS_SCHEDULED' || statusType?.state === 'pre') {
+        const date = new Date(event.date);
+        const dateFormatted = `${date.getMonth() + 1}/${date.getDate()}`;
+        const timeFormatted = date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+        
+        const now = new Date();
+        const diffMs = date - now;
+        
+        if (diffMs > 0 && diffMs <= 86400000) {
+          const hours = Math.floor(diffMs / 3600000);
+          const minutes = Math.floor((diffMs % 3600000) / 60000);
+          
+          let countdownStr = 'In ';
+          if (hours > 0) countdownStr += `${hours}h `;
+          countdownStr += `${minutes}m`;
+
+          if (hours === 0 && minutes === 0) {
+            countdownStr = 'Starting soon';
+          }
+          
+          return `${dateFormatted} ${timeFormatted} (${countdownStr})`;
+        }
+        
+        return `${dateFormatted} ${timeFormatted}`;
+      }
+
+      return statusType?.detail || event.status?.type?.description || 'Scheduled';
+    }
+
     function updateScoreboardDOM(events) {
       if (events.length === 0) {
         scoreboardEl.innerHTML = '<div class="loading">No games found for the selected criteria.</div>';
@@ -511,14 +601,7 @@
         const home = competitors.find(c => c.homeAway === 'home') || competitors[0];
         const away = competitors.find(c => c.homeAway === 'away') || competitors[1];
         
-        // Display local start time for scheduled games instead of "Scheduled"
-        let status = event.status.type.detail;
-        if (event.status.type.state === 'pre') {
-          if (event.date) {
-            const gameDate = new Date(event.date);
-            status = gameDate.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-          }
-        }
+        const status = formatGameStatus(event);
 
         const awayName = away.team.abbreviation || away.team.shortDisplayName || away.team.displayName;
         const homeName = home.team.abbreviation || home.team.shortDisplayName || home.team.displayName;
@@ -536,7 +619,7 @@
           }
         }
 
-        gameCache.set(event.id, { awayScore: currentAwayScore, homeScore: currentHomeScore });
+        gameCache.set(event.id, { awayScore: currentAwayScore, homeScore: currentHomeScore, rawEvent: event });
 
         const isPinned = pinnedGames.has(event.id);
         const isPush = pushGames.has(event.id);
@@ -608,6 +691,19 @@
       });
 
       existingCards.forEach(card => card.remove());
+    }
+
+    function updateLiveTimers() {
+      scoreboardEl.querySelectorAll('.game-card').forEach(card => {
+        const eventId = card.getAttribute('data-event-id');
+        const cached = gameCache.get(eventId);
+        if (cached && cached.rawEvent) {
+          const statusEl = card.querySelector('.status');
+          if (statusEl) {
+            statusEl.textContent = formatGameStatus(cached.rawEvent);
+          }
+        }
+      });
     }
 
     async function fetchSummary(eventId, isSilent = false) {
@@ -708,6 +804,11 @@
       pollInterval = setInterval(() => {
         fetchScores(true);
       }, 15000);
+
+      if (timerInterval) clearInterval(timerInterval);
+      timerInterval = setInterval(() => {
+        updateLiveTimers();
+      }, 10000);
     }
 
     if ('serviceWorker' in navigator) {
