@@ -510,7 +510,6 @@
       const state = event.status?.type?.state;
       const gameDate = new Date(event.date);
 
-      // Return default detail if in-progress, delayed, or final
       if (state !== 'pre') {
         return event.status.type.detail;
       }
@@ -538,7 +537,6 @@
       return `${dateStr} ${timeStr} • ${countdownStr}`;
     }
 
-    /* Periodically updates all countdown statuses without re-rendering network requests */
     function updateCountdowns() {
       document.querySelectorAll('.game-card').forEach(card => {
         const eventId = card.getAttribute('data-event-id');
@@ -691,9 +689,9 @@
 
             <div class="card-actions">
               <button onclick="fetchSummary('${event.id}')">Summary</button>
-              <button class="btn-push ${isPush ? 'active' : ''}" onclick="togglePushAlerts('${event.id}')">${isPush ? 'Push On' : 'Push Off'}</button>
               <button onclick="fetchSchedule('${away.team.id}', '${away.team.displayName}')">${awayName} Sched</button>
               <button onclick="fetchSchedule('${home.team.id}', '${home.team.displayName}')">${homeName} Sched</button>
+              <button class="btn-push ${isPush ? 'active' : ''}" onclick="togglePushAlerts('${event.id}')">${isPush ? 'Push On' : 'Push Off'}</button>
             </div>
           `;
           scoreboardEl.appendChild(card);
@@ -805,12 +803,10 @@
       if (pollInterval) clearInterval(pollInterval);
       if (countdownInterval) clearInterval(countdownInterval);
 
-      // Refresh ESPN scores every 15 seconds
       pollInterval = setInterval(() => {
         fetchScores(true);
       }, 15000);
 
-      // Re-calculate live countdown timers every 10 seconds
       countdownInterval = setInterval(() => {
         updateCountdowns();
       }, 10000);
