@@ -384,31 +384,6 @@
       }, 4000);
     }
 
-    async function sendPushPayload(title, message, eventId) {
-      if (!userPushSubscription) return;
-
-      const payload = {
-        title: title,
-        body: message,
-        icon: 'https://hcforever.nekoweb.org/mo2.png',
-        badge: 'https://hcforever.nekoweb.org/mo2.png',
-        data: { eventId: eventId }
-      };
-
-      try {
-        await fetch('/.netlify/functions/send-push', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            subscription: userPushSubscription,
-            payload: payload
-          })
-        });
-      } catch (err) {
-        console.error('Failed to trigger push via Netlify Function:', err);
-      }
-    }
-
     function togglePin(eventId) {
       if (pinnedGames.has(eventId)) {
         pinnedGames.delete(eventId);
@@ -433,9 +408,10 @@
         }
       }
 
+      const reg = await navigator.serviceWorker.ready;
+
       if (!userPushSubscription) {
         try {
-          const reg = await navigator.serviceWorker.ready;
           userPushSubscription = await reg.pushManager.subscribe({
             userVisibleOnly: true,
             applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
@@ -446,12 +422,31 @@
         }
       }
 
-      if (pushGames.has(eventId)) {
-        pushGames.delete(eventId);
-        showToast('Push alerts disabled for this game.');
-      } else {
+      const isEnabling = !pushGames.has(eventId);
+
+      if (isEnabling) {
         pushGames.add(eventId);
-        showToast('Push alerts enabled for this game!');
+        showToast('Background push alerts enabled for this game!');
+      } else {
+        pushGames.delete(eventId);
+        showToast('Push alerts disabled.');
+      }
+
+      // Synchronize subscription state with Netlify background worker
+      try {
+        await fetch('/.netlify/functions/save-subscription', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            subscription: userPushSubscription,
+            action: isEnabling ? 'subscribe' : 'unsubscribe',
+            eventId: eventId,
+            sport: currentSport,
+            league: currentLeague
+          })
+        });
+      } catch (err) {
+        console.error('Failed to sync subscription with server:', err);
       }
 
       localStorage.setItem('pushGames', JSON.stringify([...pushGames]));
@@ -526,16 +521,12 @@
         const currentAwayScore = away.score ?? '-';
         const currentHomeScore = home.score ?? '-';
 
+        // Foreground toast update (if user currently has page open)
         if (gameCache.has(event.id)) {
           const prev = gameCache.get(event.id);
           if (prev.awayScore !== currentAwayScore || prev.homeScore !== currentHomeScore) {
             const msg = `Score Update (${awayName} vs ${homeName}): ${awayName} ${currentAwayScore} - ${currentHomeScore} ${homeName}`;
-            
             showToast(msg);
-
-            if (pushGames.has(event.id)) {
-              sendPushPayload('Score Update', msg, event.id);
-            }
           }
         }
 
@@ -716,7 +707,6 @@
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('/sw.js')
         .then(async (reg) => {
-          console.log('SW registered successfully:', reg);
           userPushSubscription = await reg.pushManager.getSubscription();
         })
         .catch(err => console.error('SW Registration Failed:', err));
