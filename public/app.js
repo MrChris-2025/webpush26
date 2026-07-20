@@ -1,37 +1,38 @@
-// Change this line inside app.js
-await fetch('/.netlify/functions/save-subscription', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify(subscription)
-});
-
-
 const VAPID_PUBLIC_KEY = "BGUzkLiSemAIlhdNCJWDxARVhPDZRfPhZIsyvtoxOQde-1SCPGOGTpP6b9qtyhNS5oIYq2RpDwu538vXCIdZr6o";
 let isSubscribed = false;
 let swRegistration = null;
 
-// Initialize when application loads
-if ('serviceWorker' in navigator && 'PushManager' in window) {
-  window.addEventListener('load', () => {
+// Ensure DOM is fully loaded before interacting with elements
+window.addEventListener('load', () => {
+  const btn = document.getElementById('subscribe-btn');
+
+  if ('serviceWorker' in navigator && 'PushManager' in window) {
+    // Attach listener once during setup
+    btn.addEventListener('click', handleSubscriptionClick);
+
     navigator.serviceWorker.register('/sw.js')
       .then(reg => {
         swRegistration = reg;
         initializeUI();
       })
       .catch(err => console.error('Service Worker registration failed:', err));
-  });
-} else {
-  const btn = document.getElementById('subscribe-btn');
-  btn.textContent = 'Push Notifications Not Supported';
-}
+  } else {
+    if (btn) btn.textContent = 'Push Notifications Not Supported';
+  }
+});
 
-// Check current subscription state and set button text
 async function initializeUI() {
   const btn = document.getElementById('subscribe-btn');
-  btn.removeAttribute('disabled');
-  btn.addEventListener('click', handleSubscriptionClick);
 
-  // Check if browser already has an active subscription token
+  if (Notification.permission === 'denied') {
+    btn.textContent = 'Notifications Blocked';
+    btn.setAttribute('disabled', true);
+    return;
+  }
+
+  btn.removeAttribute('disabled');
+
+  // Check existing push token
   const subscription = await swRegistration.pushManager.getSubscription();
   isSubscribed = !(subscription === null);
 
@@ -51,7 +52,6 @@ function updateButtonState() {
   }
 }
 
-// Router to handle subscribing or unsubscribing
 async function handleSubscriptionClick() {
   const btn = document.getElementById('subscribe-btn');
   btn.setAttribute('disabled', true);
@@ -66,45 +66,53 @@ async function handleSubscriptionClick() {
   updateButtonState();
 }
 
-// Action: Opt-in to Push Notifications
 async function subscribeUser() {
+  let subscription = null;
   try {
-    // Request permission from browser
     const permission = await Notification.requestPermission();
     if (permission !== 'granted') {
       alert('Permission was denied. Please clear site permissions to enable.');
       return;
     }
 
-    // Generate unique push endpoint from Google/Apple push server
-    const subscription = await swRegistration.pushManager.subscribe({
+    // Subscribe with push server
+    subscription = await swRegistration.pushManager.subscribe({
       userVisibleOnly: true,
       applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
     });
 
-    // Send the endpoint object to your Netlify serverless database function
-    await fetch('/.netlify/functions/save-subscription', {
+    // Save token to backend database
+    const response = await fetch('/.netlify/functions/save-subscription', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(subscription)
     });
 
+    if (!response.ok) {
+      throw new Error('Failed to save subscription on backend');
+    }
+
     isSubscribed = true;
     console.log('User successfully subscribed:', subscription);
   } catch (err) {
     console.error('Failed to subscribe the user: ', err);
+
+    // Rollback browser subscription if backend save failed
+    if (subscription) {
+      await subscription.unsubscribe();
+    }
+    isSubscribed = false;
   }
 }
 
-// Action: Opt-out / Revoke token
 async function unsubscribeUser() {
   try {
     const subscription = await swRegistration.pushManager.getSubscription();
     if (subscription) {
-      // Remove registration on vendor side
+      // Unsubscribe from browser/vendor service
       await subscription.unsubscribe();
-      
-      // Notify your database backend to clean up and delete the old subscription string
+
+      // Clean up backend database record
       await fetch('/.netlify/functions/remove-subscription', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -117,7 +125,6 @@ async function unsubscribeUser() {
   }
 }
 
-// Helper to convert VAPID key string to Uint8Array required by pushManager
 function urlBase64ToUint8Array(base64String) {
   const padding = '='.repeat((4 - base64String.length % 4) % 4);
   const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
