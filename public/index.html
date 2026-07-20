@@ -432,7 +432,6 @@
         showToast('Push alerts disabled.');
       }
 
-      // Synchronize subscription state with Netlify background worker
       try {
         await fetch('/.netlify/functions/save-subscription', {
           method: 'POST',
@@ -511,7 +510,15 @@
         const competitors = competition.competitors;
         const home = competitors.find(c => c.homeAway === 'home') || competitors[0];
         const away = competitors.find(c => c.homeAway === 'away') || competitors[1];
-        const status = event.status.type.detail;
+        
+        // Display local start time for scheduled games instead of "Scheduled"
+        let status = event.status.type.detail;
+        if (event.status.type.state === 'pre') {
+          if (event.date) {
+            const gameDate = new Date(event.date);
+            status = gameDate.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+          }
+        }
 
         const awayName = away.team.abbreviation || away.team.shortDisplayName || away.team.displayName;
         const homeName = home.team.abbreviation || home.team.shortDisplayName || home.team.displayName;
@@ -521,7 +528,6 @@
         const currentAwayScore = away.score ?? '-';
         const currentHomeScore = home.score ?? '-';
 
-        // Foreground toast update (if user currently has page open)
         if (gameCache.has(event.id)) {
           const prev = gameCache.get(event.id);
           if (prev.awayScore !== currentAwayScore || prev.homeScore !== currentHomeScore) {
