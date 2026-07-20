@@ -1,0 +1,6 @@
+[build]
+  publish = "public"
+
+# Automatically triggers the score polling function on a schedule
+[functions."poll-scores"]
+  schedule = "*/5 * * * *" 
