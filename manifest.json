@@ -1,17 +1,15 @@
 {
-  "short_name": "Sports Alerts",
-  "name": "Live Sports Alerts PWA",
+  "name"            : "SmartBin Notification",
+  "short_name"      : "SmartBin",
+  "start_url"       : "/",
+  "display"         : "standalone",
+  "background_color": "#f0f2f5",
+  "theme_color"     : "#4361ee",
   "icons": [
     {
-      "src": "/icon-512.PNG",
-      "type": "image/png",
-      "sizes": "512x512",
-      "purpose": "any maskable"
+      "src"    : "icon.png",
+      "sizes"  : "192x192",
+      "type"   : "image/png"
     }
-  ],
-  "start_url": "/",
-  "background_color": "#121212",
-  "theme_color": "#141515",
-  "display": "standalone",
-  "orientation": "portrait"
+  ]
 }
