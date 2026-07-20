@@ -6,3 +6,7 @@
   from = "/api/*"
   to = "/.netlify/functions/:splat"
   status = 200
+
+# Runs the score checker automatically on Netlify's servers every 5 minutes
+[functions."check-scores"]
+  schedule = "*/5 * * * *"
