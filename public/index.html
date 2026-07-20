@@ -3,35 +3,741 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ScoreAlerts PWA</title>
-
-          
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="hc Scoreboard">
-
+  <title>Sports Scoreboard & Schedules PWA</title>
   
-  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="apple-touch-icon" sizes="512x512" href="https://hcforever.nekoweb.org/mo2.png">
+
+  <link rel="manifest" href='data:application/manifest+json,{
+    "name": "Sports Scoreboard & Schedules",
+    "short_name": "SportsPWA",
+    "start_url": ".",
+    "display": "standalone",
+    "background_color": "#121212",
+    "theme_color": "#007bff",
+    "icons": [{
+      "src": "https://hcforever.nekoweb.org/mo2.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }]
+  }'>
+
+  <style>
+    :root {
+      --bg-color: #121212;
+      --card-bg: #1e1e1e;
+      --modal-bg: #282828;
+      --text-color: #ffffff;
+      --accent-color: #007bff;
+      --border-color: #333333;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background-color: var(--bg-color);
+      color: var(--text-color);
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    header {
+      width: 100%;
+      background-color: var(--card-bg);
+      padding: 1rem 0;
+      text-align: center;
+      border-bottom: 1px solid var(--border-color);
+      position: sticky;
+      top: 0;
+      z-index: 90;
+    }
+
+    h1 {
+      margin: 0 0 0.8rem 0;
+      font-size: 1.4rem;
+    }
+
+    nav {
+      display: flex;
+      justify-content: center;
+      gap: 0.4rem;
+      flex-wrap: wrap;
+      padding: 0 1rem;
+      margin-bottom: 0.8rem;
+    }
+
+    .controls {
+      display: flex;
+      justify-content: center;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      padding: 0 1rem;
+    }
+
+    .controls input, .controls select, button {
+      background-color: #2a2a2a;
+      color: var(--text-color);
+      border: 1px solid var(--border-color);
+      padding: 0.4rem 0.8rem;
+      border-radius: 6px;
+      font-size: 0.85rem;
+    }
+
+    button {
+      border-radius: 20px;
+      cursor: pointer;
+      font-weight: bold;
+      transition: background-color 0.2s;
+    }
+
+    button.active, button:hover {
+      background-color: var(--accent-color);
+      border-color: var(--accent-color);
+    }
+
+    main {
+      width: 100%;
+      max-width: 900px;
+      padding: 1rem;
+      box-sizing: border-box;
+    }
+
+    .scoreboard {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 1rem;
+    }
+
+    .game-card {
+      background-color: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.6rem;
+      transition: transform 0.1s ease;
+      position: relative;
+    }
+
+    .game-card.pinned {
+      border-color: #ffc107;
+      order: -1;
+    }
+
+    .game-card:hover {
+      transform: translateY(-2px);
+    }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .status {
+      font-size: 0.75rem;
+      color: #888888;
+      text-transform: uppercase;
+      font-weight: bold;
+    }
+
+    .pin-btn {
+      background: none;
+      border: none;
+      color: #888;
+      cursor: pointer;
+      font-size: 1rem;
+      padding: 0 4px;
+    }
+
+    .pin-btn.active {
+      color: #ffc107;
+    }
+
+    .team {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .team-info {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .team-logo {
+      width: 24px;
+      height: 24px;
+      object-fit: contain;
+    }
+
+    .team-record {
+      font-size: 0.8rem;
+      color: #aaaaaa;
+      margin-left: 0.3rem;
+    }
+
+    .score {
+      font-weight: bold;
+      font-size: 1.1rem;
+    }
+
+    .card-actions {
+      display: flex;
+      gap: 0.4rem;
+      margin-top: 0.4rem;
+      flex-wrap: wrap;
+    }
+
+    .card-actions button {
+      font-size: 0.75rem;
+      padding: 0.3rem 0.5rem;
+      border-radius: 4px;
+      flex: 1;
+    }
+
+    .btn-push {
+      background-color: #28a745;
+    }
+    .btn-push.active {
+      background-color: #dc3545;
+      border-color: #dc3545;
+    }
+
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0, 0, 0, 0.75);
+      z-index: 100;
+      justify-content: center;
+      align-items: center;
+      padding: 1rem;
+    }
+
+    .modal-overlay.active {
+      display: flex;
+    }
+
+    .modal-content {
+      background-color: var(--modal-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      width: 100%;
+      max-width: 600px;
+      max-height: 85vh;
+      overflow-y: auto;
+      padding: 0 1.5rem 1.5rem 1.5rem;
+      position: relative;
+    }
+
+    .modal-sticky-header {
+      position: sticky;
+      top: 0;
+      background-color: var(--modal-bg);
+      padding: 1.5rem 0 1rem 0;
+      margin-bottom: 0.5rem;
+      border-bottom: 1px solid var(--border-color);
+      z-index: 10;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .modal-sticky-header h2 {
+      margin: 0;
+      font-size: 1.2rem;
+      padding-right: 1rem;
+    }
+
+    .modal-close {
+      background: none;
+      border: none;
+      color: #aaa;
+      font-size: 1.5rem;
+      cursor: pointer;
+      padding: 0;
+      line-height: 1;
+    }
+
+    .modal-close:hover {
+      color: var(--text-color);
+    }
+
+    .loading, .error {
+      text-align: center;
+      grid-column: 1 / -1;
+      padding: 2rem;
+      color: #888888;
+    }
+
+    .list-item {
+      padding: 0.5rem 0;
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.9rem;
+    }
+
+    #toast-container {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      z-index: 1000;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      max-width: 300px;
+    }
+
+    .toast {
+      background-color: #333;
+      color: #fff;
+      padding: 12px 16px;
+      border-radius: 8px;
+      border-left: 4px solid var(--accent-color);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+      font-size: 0.85rem;
+      animation: fadeIn 0.3s ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+  </style>
 </head>
 <body>
-  <h1>Live Score Alerts</h1>
-  <div id="game-list">
-    <p>Loading live matches...</p>
+
+  <header>
+    <h1>Sports Scoreboard & Schedules</h1>
+    
+    <nav id="league-nav">
+      <button data-sport="football" data-league="nfl" class="active">NFL</button>
+      <button data-sport="basketball" data-league="nba">NBA</button>
+      <button data-sport="baseball" data-league="mlb">MLB</button>
+      <button data-sport="hockey" data-league="nhl">NHL</button>
+      <button data-sport="soccer" data-league="eng.1">Premier League</button>
+    </nav>
+
+    <div class="controls">
+      <input type="date" id="param-date">
+      <select id="param-seasontype">
+        <option value="">Season Type (All)</option>
+        <option value="1">Preseason (1)</option>
+        <option value="2">Regular Season (2)</option>
+        <option value="3">Postseason (3)</option>
+      </select>
+      <button id="apply-filters">Apply Filters</button>
+    </div>
+  </header>
+
+  <main>
+    <div id="scoreboard" class="scoreboard">
+      <div class="loading">Loading scores...</div>
+    </div>
+  </main>
+
+  <div id="modal" class="modal-overlay">
+    <div class="modal-content">
+      <div class="modal-sticky-header">
+        <h2 id="modal-title">Details</h2>
+        <button class="modal-close" id="modal-close">&times;</button>
+      </div>
+      <div id="modal-body">Loading details...</div>
+    </div>
   </div>
-  <button id="subscribe-btn" style="display:none;">Enable Game Alerts</button>
 
-  <!-- Insert this inside the <body> of your index.html -->
-<div class="notification-panel" style="padding: 20px; border: 1px solid #ccc; border-radius: 8px; margin: 20px 0;">
-  <h3>Live Updates</h3>
-  <p>Never miss a play. Turn on live alerts for game-day scores.</p>
-  
-  <!-- The toggle button that controls the browser prompt -->
-  <button id="subscribe-btn" disabled>Loading live system...</button>
-</div>
+  <div id="toast-container"></div>
 
+  <script>
+    const VAPID_PUBLIC_KEY = 'BGUzkLiSemAIlhdNCJWDxARVhPDZRfPhZIsyvtoxOQde-1SCPGOGTpP6b9qtyhNS5oIYq2RpDwu538vXCIdZr6o';
 
-  
+    let currentSport = 'football';
+    let currentLeague = 'nfl';
+    let pollInterval = null;
+    let activeModalView = null;
+    let userPushSubscription = null;
+    
+    let gameCache = new Map();
+    let pinnedGames = new Set(JSON.parse(localStorage.getItem('pinnedGames') || '[]'));
+    let pushGames = new Set(JSON.parse(localStorage.getItem('pushGames') || '[]'));
 
-  <script src="/app.js"></script>
+    const scoreboardEl = document.getElementById('scoreboard');
+    const navEl = document.getElementById('league-nav');
+    const modalEl = document.getElementById('modal');
+    const modalTitleEl = document.getElementById('modal-title');
+    const modalBodyEl = document.getElementById('modal-body');
+
+    function urlBase64ToUint8Array(base64String) {
+      const padding = '='.repeat((4 - base64String.length % 4) % 4);
+      const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+      const rawData = window.atob(base64);
+      const outputArray = new Uint8Array(rawData.length);
+      for (let i = 0; i < rawData.length; ++i) {
+        outputArray[i] = rawData.charCodeAt(i);
+      }
+      return outputArray;
+    }
+
+    function showToast(message) {
+      const container = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+      toast.className = 'toast';
+      toast.textContent = message;
+      container.appendChild(toast);
+
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transition = 'opacity 0.5s ease';
+        setTimeout(() => toast.remove(), 500);
+      }, 4000);
+    }
+
+    async function sendPushPayload(title, message, eventId) {
+      if (!userPushSubscription) return;
+
+      const payload = {
+        title: title,
+        body: message,
+        icon: 'https://hcforever.nekoweb.org/mo2.png',
+        badge: 'https://hcforever.nekoweb.org/mo2.png',
+        data: { eventId: eventId }
+      };
+
+      try {
+        await fetch('/.netlify/functions/send-push', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            subscription: userPushSubscription,
+            payload: payload
+          })
+        });
+      } catch (err) {
+        console.error('Failed to trigger push via Netlify Function:', err);
+      }
+    }
+
+    function togglePin(eventId) {
+      if (pinnedGames.has(eventId)) {
+        pinnedGames.delete(eventId);
+      } else {
+        pinnedGames.add(eventId);
+      }
+      localStorage.setItem('pinnedGames', JSON.stringify([...pinnedGames]));
+      fetchScores(true);
+    }
+
+    async function togglePushAlerts(eventId) {
+      if (!('Notification' in window) || !('serviceWorker' in navigator)) {
+        showToast('Push Notifications are not supported in this browser.');
+        return;
+      }
+
+      if (Notification.permission === 'default') {
+        const perm = await Notification.requestPermission();
+        if (perm !== 'granted') {
+          showToast('Notification permission denied.');
+          return;
+        }
+      }
+
+      if (!userPushSubscription) {
+        try {
+          const reg = await navigator.serviceWorker.ready;
+          userPushSubscription = await reg.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+          });
+        } catch (e) {
+          showToast('Failed to subscribe to Push Manager.');
+          return;
+        }
+      }
+
+      if (pushGames.has(eventId)) {
+        pushGames.delete(eventId);
+        showToast('Push alerts disabled for this game.');
+      } else {
+        pushGames.add(eventId);
+        showToast('Push alerts enabled for this game!');
+      }
+
+      localStorage.setItem('pushGames', JSON.stringify([...pushGames]));
+      fetchScores(true);
+    }
+
+    async function fetchScores(isSilent = false) {
+      if (!isSilent) {
+        scoreboardEl.innerHTML = '<div class="loading">Loading scores...</div>';
+      }
+      
+      const baseUrl = `https://site.api.espn.com/apis/site/v2/sports/${currentSport}/${currentLeague}/scoreboard`;
+      const params = new URLSearchParams();
+
+      const dateVal = document.getElementById('param-date').value.replace(/-/g, '');
+      const seasonTypeVal = document.getElementById('param-seasontype').value;
+
+      if (dateVal) params.append('dates', dateVal);
+      if (seasonTypeVal) params.append('seasontype', seasonTypeVal);
+
+      const url = params.toString() ? `${baseUrl}?${params.toString()}` : baseUrl;
+
+      try {
+        const response = await fetch(url);
+        if (!response.ok) throw new Error('Network response failed');
+        const data = await response.json();
+        updateScoreboardDOM(data.events || []);
+
+        if (activeModalView) {
+          if (activeModalView.type === 'summary') fetchSummary(activeModalView.id, true);
+          if (activeModalView.type === 'schedule') fetchSchedule(activeModalView.id, activeModalView.name, true);
+        }
+      } catch (err) {
+        if (!isSilent) {
+          scoreboardEl.innerHTML = `<div class="error">Unable to load scores. Check params or API availability.</div>`;
+        }
+      }
+    }
+
+    function getTeamRecord(competitor) {
+      if (!competitor.records || competitor.records.length === 0) return '';
+      const totalRecord = competitor.records.find(r => r.type === 'total' || r.type === 'overall') || competitor.records[0];
+      return totalRecord?.summary ? `(${totalRecord.summary})` : '';
+    }
+
+    function updateScoreboardDOM(events) {
+      if (events.length === 0) {
+        scoreboardEl.innerHTML = '<div class="loading">No games found for the selected criteria.</div>';
+        return;
+      }
+
+      const staticMsg = scoreboardEl.querySelector('.loading, .error');
+      if (staticMsg) scoreboardEl.innerHTML = '';
+
+      const existingCards = new Map();
+      scoreboardEl.querySelectorAll('.game-card').forEach(card => {
+        existingCards.set(card.getAttribute('data-event-id'), card);
+      });
+
+      events.forEach(event => {
+        const competition = event.competitions[0];
+        const competitors = competition.competitors;
+        const home = competitors.find(c => c.homeAway === 'home') || competitors[0];
+        const away = competitors.find(c => c.homeAway === 'away') || competitors[1];
+        const status = event.status.type.detail;
+
+        const awayName = away.team.abbreviation || away.team.shortDisplayName || away.team.displayName;
+        const homeName = home.team.abbreviation || home.team.shortDisplayName || home.team.displayName;
+        const awayRecord = getTeamRecord(away);
+        const homeRecord = getTeamRecord(home);
+
+        const currentAwayScore = away.score ?? '-';
+        const currentHomeScore = home.score ?? '-';
+
+        if (gameCache.has(event.id)) {
+          const prev = gameCache.get(event.id);
+          if (prev.awayScore !== currentAwayScore || prev.homeScore !== currentHomeScore) {
+            const msg = `Score Update (${awayName} vs ${homeName}): ${awayName} ${currentAwayScore} - ${currentHomeScore} ${homeName}`;
+            
+            showToast(msg);
+
+            if (pushGames.has(event.id)) {
+              sendPushPayload('Score Update', msg, event.id);
+            }
+          }
+        }
+
+        gameCache.set(event.id, { awayScore: currentAwayScore, homeScore: currentHomeScore });
+
+        const isPinned = pinnedGames.has(event.id);
+        const isPush = pushGames.has(event.id);
+
+        let card = existingCards.get(event.id);
+
+        if (card) {
+          card.className = `game-card ${isPinned ? 'pinned' : ''}`;
+          card.querySelector('.status').textContent = status;
+          
+          const pinBtn = card.querySelector('.pin-btn');
+          pinBtn.className = `pin-btn ${isPinned ? 'active' : ''}`;
+          pinBtn.textContent = isPinned ? '★' : '☆';
+
+          const pushBtn = card.querySelector('.btn-push');
+          pushBtn.className = `btn-push ${isPush ? 'active' : ''}`;
+          pushBtn.textContent = isPush ? 'Push On' : 'Push Off';
+
+          const teamScores = card.querySelectorAll('.score');
+          if (teamScores[0]) teamScores[0].textContent = currentAwayScore;
+          if (teamScores[1]) teamScores[1].textContent = currentHomeScore;
+
+          const teamRecords = card.querySelectorAll('.team-record');
+          if (teamRecords[0]) teamRecords[0].textContent = awayRecord;
+          if (teamRecords[1]) teamRecords[1].textContent = homeRecord;
+
+          existingCards.delete(event.id);
+        } else {
+          card = document.createElement('div');
+          card.className = `game-card ${isPinned ? 'pinned' : ''}`;
+          card.setAttribute('data-event-id', event.id);
+          card.innerHTML = `
+            <div class="card-header">
+              <span class="status">${status}</span>
+              <button class="pin-btn ${isPinned ? 'active' : ''}" onclick="togglePin('${event.id}')">${isPinned ? '★' : '☆'}</button>
+            </div>
+            
+            <div class="team">
+              <div class="team-info">
+                <img class="team-logo" src="${away.team.logo || 'https://via.placeholder.com/24'}" alt="${away.team.displayName}">
+                <span>
+                  ${away.team.displayName}
+                  <span class="team-record">${awayRecord}</span>
+                </span>
+              </div>
+              <span class="score">${currentAwayScore}</span>
+            </div>
+
+            <div class="team">
+              <div class="team-info">
+                <img class="team-logo" src="${home.team.logo || 'https://via.placeholder.com/24'}" alt="${home.team.displayName}">
+                <span>
+                  ${home.team.displayName}
+                  <span class="team-record">${homeRecord}</span>
+                </span>
+              </div>
+              <span class="score">${currentHomeScore}</span>
+            </div>
+
+            <div class="card-actions">
+              <button onclick="fetchSummary('${event.id}')">Summary</button>
+              <button class="btn-push ${isPush ? 'active' : ''}" onclick="togglePushAlerts('${event.id}')">${isPush ? 'Push On' : 'Push Off'}</button>
+              <button onclick="fetchSchedule('${away.team.id}', '${away.team.displayName}')">${awayName} Sched</button>
+              <button onclick="fetchSchedule('${home.team.id}', '${home.team.displayName}')">${homeName} Sched</button>
+            </div>
+          `;
+          scoreboardEl.appendChild(card);
+        }
+      });
+
+      existingCards.forEach(card => card.remove());
+    }
+
+    async function fetchSummary(eventId, isSilent = false) {
+      if (!isSilent) openModal('Game Summary', 'Loading Game Summary...');
+      activeModalView = { type: 'summary', id: eventId };
+
+      const url = `https://site.api.espn.com/apis/site/v2/sports/${currentSport}/${currentLeague}/summary?event=${eventId}`;
+      try {
+        const res = await fetch(url);
+        const data = await res.json();
+        
+        const header = data.header?.competitions?.[0] || {};
+        const boxscore = data.boxscore || {};
+
+        modalTitleEl.textContent = data.header?.season?.name || 'Game Summary';
+        modalBodyEl.innerHTML = `
+          <p><strong>Venue:</strong> ${header.venue?.fullName || 'N/A'}</p>
+          <h3>Teams & Leaders</h3>
+          ${(boxscore.teams || []).map(t => `
+            <div class="list-item">
+              <span><strong>${t.team?.displayName}</strong></span>
+              <span>${t.displayValue || ''}</span>
+            </div>
+          `).join('') || '<p>Detailed stats unavailable for this game.</p>'}
+        `;
+      } catch (err) {
+        if (!isSilent) modalBodyEl.innerHTML = `<p class="error">Failed to load game summary.</p>`;
+      }
+    }
+
+    async function fetchSchedule(teamId, teamName, isSilent = false) {
+      if (!isSilent) openModal(`${teamName} Schedule`, `Loading Schedule for ${teamName}...`);
+      activeModalView = { type: 'schedule', id: teamId, name: teamName };
+
+      const url = `https://site.api.espn.com/apis/site/v2/sports/${currentSport}/${currentLeague}/teams/${teamId}/schedule`;
+      try {
+        const res = await fetch(url);
+        const data = await res.json();
+        const events = data.events || [];
+
+        modalBodyEl.innerHTML = `
+          ${events.length === 0 ? '<p>No scheduled events found.</p>' : ''}
+          ${events.map(item => {
+            const dateStr = item.date ? new Date(item.date).toLocaleDateString() : 'TBD';
+            const comp = item.competitions?.[0];
+            let matchText = item.name;
+
+            if (comp && comp.competitors) {
+              const myTeam = comp.competitors.find(c => String(c.id) === String(teamId) || String(c.team?.id) === String(teamId));
+              const opponent = comp.competitors.find(c => String(c.id) !== String(teamId) && String(c.team?.id) !== String(teamId));
+
+              if (opponent && opponent.team) {
+                const oppName = opponent.team.displayName || opponent.team.shortDisplayName || opponent.team.abbreviation;
+                const isHome = myTeam ? myTeam.homeAway === 'home' : comp.competitors[0]?.id === myTeam?.id;
+                matchText = isHome ? `vs ${oppName}` : `@ ${oppName}`;
+              }
+            }
+
+            return `
+              <div class="list-item">
+                <span>${dateStr}</span>
+                <span>${matchText}</span>
+              </div>
+            `;
+          }).join('')}
+        `;
+      } catch (err) {
+        if (!isSilent) modalBodyEl.innerHTML = `<p class="error">Failed to load team schedule.</p>`;
+      }
+    }
+
+    function openModal(title, initialText) {
+      modalTitleEl.textContent = title;
+      modalBodyEl.innerHTML = `<div class="loading">${initialText}</div>`;
+      modalEl.classList.add('active');
+    }
+
+    document.getElementById('modal-close').addEventListener('click', () => {
+      modalEl.classList.remove('active');
+      activeModalView = null;
+    });
+
+    navEl.addEventListener('click', (e) => {
+      if (e.target.tagName === 'BUTTON') {
+        document.querySelectorAll('nav button').forEach(btn => btn.classList.remove('active'));
+        e.target.classList.add('active');
+
+        currentSport = e.target.getAttribute('data-sport');
+        currentLeague = e.target.getAttribute('data-league');
+        fetchScores(false);
+      }
+    });
+
+    document.getElementById('apply-filters').addEventListener('click', () => fetchScores(false));
+
+    function startAutoPolling() {
+      if (pollInterval) clearInterval(pollInterval);
+      pollInterval = setInterval(() => {
+        fetchScores(true);
+      }, 15000);
+    }
+
+    // Register Service Worker and fetch initial data
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js')
+        .then(async (reg) => {
+          console.log('SW registered successfully:', reg);
+          userPushSubscription = await reg.pushManager.getSubscription();
+        })
+        .catch(err => console.error('SW Registration Failed:', err));
+    }
+
+    fetchScores(false);
+    startAutoPolling();
+  </script>
 </body>
 </html>
