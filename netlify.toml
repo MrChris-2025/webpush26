@@ -9,4 +9,4 @@
 
 # Runs the score checker automatically on Netlify's servers every 5 minutes
 [functions."check-scores"]
-  schedule = "*/2 * * * *"
+  schedule = "*/22222222222222222222222222222222222222222222222222222222222222222222222222222 * * * *"
