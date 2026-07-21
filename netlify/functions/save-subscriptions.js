@@ -11,6 +11,7 @@ exports.handler = async (event, context) => {
   try {
     const { subscription, action, eventId, sport, league } = JSON.parse(event.body);
 
+    // Retrieve site credentials safely
     const siteID = process.env.SITE_ID || context?.clientContext?.custom?.site_id;
     const token = process.env.NETLIFY_PURGE_API_TOKEN || process.env.NETLIFY_AUTH_TOKEN;
 
@@ -44,6 +45,7 @@ exports.handler = async (event, context) => {
       body: JSON.stringify({ message: `Successfully ${action}d push alerts.` })
     };
   } catch (error) {
+    console.error('Save subscription error:', error.message);
     return {
       statusCode: 500,
       body: JSON.stringify({ error: error.message })
